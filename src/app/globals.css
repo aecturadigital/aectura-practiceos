@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #F9F9FB;
+  --foreground: #111315;
+  --charcoal-900: #111315;
+  --charcoal-800: #181A1D;
+  --clinical-teal: #0D9488;
+  --border-subtle: #E2E8F0;
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

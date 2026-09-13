@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AECTURA PracticeOS - Brand Visual Identity Evaluation Board</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-surface: #0E1013;
+      --bg-card: #16181D;
+      --bg-card-subtle: #1D2027;
+      --border-subtle: #272A34;
+      --border-accent: #0D9488;
+      --text-primary: #F3F4F6;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --accent-teal: #0D9488;
+      --accent-teal-subtle: rgba(13, 148, 136, 0.12);
+      --font-main: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      line-height: 1.5;
+      padding: 32px 24px 80px 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: 1440px; margin: 0 auto; }
+    
+    header {
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 24px;
+      margin-bottom: 36px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-teal-subtle);
+      color: #2DD4BF;
+      border: 1px solid rgba(45, 212, 191, 0.25);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      margin-bottom: 10px;
+    }
+
+    h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+    p.lead { color: var(--text-secondary); font-size: 14px; max-width: 760px; margin-top: 4px; }
+
+    .global-toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
+
+    .btn-toggle {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-toggle:hover, .btn-toggle.active {
+      background: var(--accent-teal);
+      border-color: var(--accent-teal);
+      color: #FFFFFF;
+    }
+
+    /* Grid of concepts */
+    .concepts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+      gap: 24px;
+      margin-bottom: 56px;
+    }
+
+    .concept-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.2s;
+    }
+    .concept-card:hover {
+      border-color: rgba(13, 148, 136, 0.4);
+    }
+
+    .card-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.01);
+    }
+    .concept-meta h3 { font-size: 16px; font-weight: 700; }
+    .concept-meta .theme-tag {
+      font-size: 12px;
+      color: var(--accent-teal);
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    .card-preview-stage {
+      padding: 36px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: #111315;
+      position: relative;
+      min-height: 200px;
+      transition: background 0.2s, color 0.2s;
+    }
+    .card-preview-stage.light-theme {
+      background: #FFFFFF !important;
+      color: #111315 !important;
+    }
+    .card-preview-stage.monochrome-theme .accent-color {
+      fill: currentColor !important;
+      stroke: currentColor !important;
+    }
+
+    .horizontal-lockup-preview {
+      width: 100%;
+      max-width: 320px;
+      height: 64px;
+    }
+
+    /* Scale Row */
+    .scale-matrix {
+      padding: 16px 20px;
+      background: rgba(0,0,0,0.25);
+      border-top: 1px solid var(--border-subtle);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      text-align: center;
+    }
+    .scale-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .scale-box .size-label {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+    .symbol-render-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000000;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px;
+      padding: 8px;
+      width: 100%;
+      height: 60px;
+    }
+    .light-theme .symbol-render-box {
+      background: #F4F4F5;
+      border-color: #E4E4E7;
+    }
+
+    .card-footer {
+      padding: 14px 20px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border-subtle);
+      background: rgba(255,255,255,0.015);
+      flex-grow: 1;
+    }
+
+    /* Mockups Showcase Section */
+    .section-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-subtitle {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+
+    .mockup-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+    @media (max-width: 1024px) {
+      .mockup-grid { grid-template-columns: 1fr; }
+      .concepts-grid { grid-template-columns: 1fr; }
+    }
+
+    .mockup-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .mockup-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Web Header Mockup */
+    .web-header-mockup {
+      padding: 16px 24px;
+      background: #0B0D0F;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1E2228;
+    }
+    .web-nav {
+      display: flex;
+      gap: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #9CA3AF;
+    }
+    .web-cta {
+      background: var(--accent-teal);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 6px;
+    }
+
+    /* Sidebar Mockup */
+    .sidebar-mockup-wrapper {
+      display: flex;
+      height: 220px;
+      background: #0D0F12;
+    }
+    .sidebar-pane {
+      width: 200px;
+      background: #111315;
+      border-right: 1px solid #1F2329;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .sidebar-items {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: #9CA3AF;
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+    .sidebar-item.active {
+      background: rgba(13, 148, 136, 0.12);
+      color: #2DD4BF;
+      font-weight: 600;
+    }
+    .dashboard-main {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .dash-stat-row {
+      display: flex;
+      gap: 12px;
+    }
+    .dash-stat-card {
+      flex: 1;
+      background: #16181D;
+      border: 1px solid #232730;
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    /* Browser Tab Mockup */
+    .browser-window {
+      background: #1A1C22;
+      border-radius: 8px 8px 0 0;
+      overflow: hidden;
+      border: 1px solid #282C37;
+    }
+    .browser-chrome {
+      background: #121418;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #252833;
+    }
+    .browser-dots { display: flex; gap: 6px; }
+    .browser-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .browser-tab {
+      background: #1A1C22;
+      padding: 6px 14px;
+      border-radius: 6px 6px 0 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #E5E7EB;
+      border: 1px solid #282C37;
+      border-bottom: none;
+    }
+
+    /* Business Card Mockup */
+    .cards-stage {
+      padding: 32px;
+      background: #0B0D0F;
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .biz-card {
+      width: 280px;
+      height: 160px;
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .biz-card.dark {
+      background: #111315;
+      border: 1px solid #262930;
+      color: #FFFFFF;
+    }
+    .biz-card.light {
+      background: #F9F9FB;
+      border: 1px solid #E2E8F0;
+      color: #111315;
+    }
+    .card-footer-info {
+      font-size: 9px;
+      color: #88909E;
+      line-height: 1.4;
+    }
+
+    /* Human Evaluation Checklist */
+    .evaluation-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .eval-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 13px;
+    }
+    .eval-table th {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .eval-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Top Navigation / Title -->
+  <header>
+    <div>
+      <div class="badge">Aectura PracticeOS &bull; Brand Engineering</div>
+      <h1>Visual Identity System: 6 Architectural Vector Concepts</h1>
+      <p class="lead">
+        Original, hand-authored geometric SVG symbols designed for enterprise AI business infrastructure.
+        Evaluated across 16px to 128px scales, monochrome contrast, website headers, dashboard sidebars, and physical cards.
+      </p>
+    </div>
+    <div class="global-toolbar">
+      <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">Surface Mode:</span>
+      <button class="btn-toggle active" id="btn-dark" onclick="setTheme('dark')">Dark Charcoal</button>
+      <button class="btn-toggle" id="btn-light" onclick="setTheme('light')">Pure White</button>
+      <button class="btn-toggle" id="btn-mono" onclick="toggleMonochrome()">Toggle Pure Monochrome</button>
+    </div>
+  </header>
+
+  <!-- Section 1: The 6 Concepts Comparison Grid -->
+  <div class="concepts-grid">
+
+    <!-- Concept A -->
+    <div class="concept-card">
+      <div class="card-header">
+        <div class="concept-meta">
+          <h3>Concept A: The Synchronous Lattice</h3>
+          <span class="theme-tag">A. Interconnected Infrastructure</span>
+        </div>
+      </div>
+      <div class="card-preview-stage" id="stage-a">
+        <!-- Horizontal Lockup -->
+        <svg class="horizontal-lockup-preview" viewBox="0 0 340 70" fill="none">
+          <g transform="translate(8, 8) scale(0.54)">
+            <g fill="currentColor">
+              <rect x="42" y="10" width="16" height="16" rx="3" />
+              <rect x="42" y="74" width="16" height="16" rx="3" />
+              <rect x="10" y="42" width="16" height="16" rx="3" />
+              <rect x="74" y="42" width="16" height="16" rx="3" />
+            </g>
+            <path d="M50 26 L50 40 M50 60 L50 74 M26 50 L40 50 M60 50 L74 50" stroke="currentColor" stroke-width="7" stroke-linecap="round" />
+            <path d="M26 26 L38 38 M62 38 L74 26 M38 62 L26 74 M62 62 L74 74" stroke="currentColor" stroke-width="6" stroke-linecap="round" opacity="0.85" />
+            <circle cx="50" cy="50" r="4.5" class="accent-color" fill="#0D9488" />
+          </g>
+          <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="currentColor">AECTURA</text>
+          <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" class="accent-color" fill="#0D9488">PRACTICE OS</text>
+        </svg>
+      </div>
+      <div class="scale-matrix">
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+              <g fill="currentColor"><rect x="42" y="10" width="16" height="16" rx="3"/><rect x="42" y="74" width="16" height="16" rx="3"/><rect x="10" y="42" width="16" height="16" rx="3"/><rect x="74" y="42" width="16" height="16" rx="3"/></g>
+              <path d="M50 26 L50 40 M50 60 L50 74 M26 50 L40 50 M60 50 L74 50" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+              <path d="M26 26 L38 38 M62 38 L74 26 M38 62 L26 74 M62 62 L74 74" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="size-label">16×16</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+              <g fill="currentColor"><rect x="42" y="10" width="16" height="16" rx="3"/><rect x="42" y="74" width="16" height="16" rx="3"/><rect x="10" y="42" width="16" height="16" rx="3"/><rect x="74" y="42" width="16" height="16" rx="3"/></g>
+              <path d="M50 26 L50 40 M50 60 L50 74 M26 50 L40 50 M60 50 L74 50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+              <circle cx="50" cy="50" r="5" class="accent-color" fill="#0D9488"/>
+            </svg>
+          </div>
+          <span class="size-label">24×24</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+              <g fill="currentColor"><rect x="42" y="10" width="16" height="16" rx="3"/><rect x="42" y="74" width="16" height="16" rx="3"/><rect x="10" y="42" width="16" height="16" rx="3"/><rect x="74" y="42" width="16" height="16" rx="3"/></g>
+              <path d="M50 26 L50 40 M50 60 L50 74 M26 50 L40 50 M60 50 L74 50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+              <circle cx="50" cy="50" r="4.5" class="accent-color" fill="#0D9488"/>
+            </svg>
+          </div>
+          <span class="size-label">48×48</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="54" height="54" viewBox="0 0 100 100" fill="none">
+              <g fill="currentColor"><rect x="42" y="10" width="16" height="16" rx="3"/><rect x="42" y="74" width="16" height="16" rx="3"/><rect x="10" y="42" width="16" height="16" rx="3"/><rect x="74" y="42" width="16" height="16" rx="3"/></g>
+              <path d="M50 26 L50 40 M50 60 L50 74 M26 50 L40 50 M60 50 L74 50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+              <circle cx="50" cy="50" r="4.5" class="accent-color" fill="#0D9488"/>
+            </svg>
+          </div>
+          <span class="size-label">128×128</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <strong>Rationale:</strong> 4 orthogonal nodes connected via precision conduits. Symbolizes multi-tenant clinics connected to a centralized, rock-solid operating platform.
+      </div>
+    </div>
+
+    <!-- Concept B -->
+    <div class="concept-card">
+      <div class="card-header">
+        <div class="concept-meta">
+          <h3>Concept B: The Laminar Circuit</h3>
+          <span class="theme-tag">B. Controlled Flow</span>
+        </div>
+      </div>
+      <div class="card-preview-stage" id="stage-b">
+        <svg class="horizontal-lockup-preview" viewBox="0 0 340 70" fill="none">
+          <g transform="translate(8, 8) scale(0.54)">
+            <path d="M16 28 H66 C77 28 84 35 84 46 C84 57 77 64 66 64 H34 C23 64 16 71 16 82" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M16 46 H54 C61 46 66 51 66 58 C66 65 61 70 54 70 H34" class="accent-color" stroke="#0D9488" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="84" cy="28" r="4.5" fill="currentColor" />
+            <circle cx="84" cy="82" r="4.5" class="accent-color" fill="#0D9488" />
+          </g>
+          <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="currentColor">AECTURA</text>
+          <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" class="accent-color" fill="#0D9488">PRACTICE OS</text>
+        </svg>
+      </div>
+      <div class="scale-matrix">
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+              <path d="M16 28 H66 C77 28 84 35 84 46 C84 57 77 64 66 64 H34 C23 64 16 71 16 82" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="size-label">16×16</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+              <path d="M16 28 H66 C77 28 84 35 84 46 C84 57 77 64 66 64 H34 C23 64 16 71 16 82" stroke="currentColor" stroke-width="10" stroke-linecap="round"/>
+              <path d="M16 46 H54 C61 46 66 51 66 58 C66 65 61 70 54 70 H34" class="accent-color" stroke="#0D9488" stroke-width="8" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="size-label">24×24</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+              <path d="M16 28 H66 C77 28 84 35 84 46 C84 57 77 64 66 64 H34 C23 64 16 71 16 82" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+              <path d="M16 46 H54 C61 46 66 51 66 58 C66 65 61 70 54 70 H34" class="accent-color" stroke="#0D9488" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="size-label">48×48</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="54" height="54" viewBox="0 0 100 100" fill="none">
+              <path d="M16 28 H66 C77 28 84 35 84 46 C84 57 77 64 66 64 H34 C23 64 16 71 16 82" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+              <path d="M16 46 H54 C61 46 66 51 66 58 C66 65 61 70 54 70 H34" class="accent-color" stroke="#0D9488" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="size-label">128×128</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <strong>Rationale:</strong> Dual parallel laminar channels with 90° returns. Conveys effortless patient journey flow and continuous operational velocity without turbulence.
+      </div>
+    </div>
+
+    <!-- Concept C -->
+    <div class="concept-card">
+      <div class="card-header">
+        <div class="concept-meta">
+          <h3>Concept C: The Prismatic Monolith</h3>
+          <span class="theme-tag">C. Modular Systems</span>
+        </div>
+      </div>
+      <div class="card-preview-stage" id="stage-c">
+        <svg class="horizontal-lockup-preview" viewBox="0 0 340 70" fill="none">
+          <g transform="translate(8, 8) scale(0.54)">
+            <polygon points="50,14 82,32 50,50 18,32" class="accent-color" fill="#0D9488" />
+            <polygon points="18,37 48,54 48,88 18,71" fill="currentColor" opacity="0.9" />
+            <polygon points="52,54 82,37 82,71 52,88" fill="currentColor" opacity="0.72" />
+          </g>
+          <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="currentColor">AECTURA</text>
+          <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" class="accent-color" fill="#0D9488">PRACTICE OS</text>
+        </svg>
+      </div>
+      <div class="scale-matrix">
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+              <polygon points="50,14 82,32 50,50 18,32" class="accent-color" fill="#0D9488" />
+              <polygon points="18,37 48,54 48,88 18,71" fill="currentColor" />
+              <polygon points="52,54 82,37 82,71 52,88" fill="currentColor" opacity="0.7" />
+            </svg>
+          </div>
+          <span class="size-label">16×16</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+              <polygon points="50,14 82,32 50,50 18,32" class="accent-color" fill="#0D9488" />
+              <polygon points="18,37 48,54 48,88 18,71" fill="currentColor" opacity="0.9" />
+              <polygon points="52,54 82,37 82,71 52,88" fill="currentColor" opacity="0.72" />
+            </svg>
+          </div>
+          <span class="size-label">24×24</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+              <polygon points="50,14 82,32 50,50 18,32" class="accent-color" fill="#0D9488" />
+              <polygon points="18,37 48,54 48,88 18,71" fill="currentColor" opacity="0.9" />
+              <polygon points="52,54 82,37 82,71 52,88" fill="currentColor" opacity="0.72" />
+            </svg>
+          </div>
+          <span class="size-label">48×48</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="54" height="54" viewBox="0 0 100 100" fill="none">
+              <polygon points="50,14 82,32 50,50 18,32" class="accent-color" fill="#0D9488" />
+              <polygon points="18,37 48,54 48,88 18,71" fill="currentColor" opacity="0.9" />
+              <polygon points="52,54 82,37 82,71 52,88" fill="currentColor" opacity="0.72" />
+            </svg>
+          </div>
+          <span class="size-label">128×128</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <strong>Rationale:</strong> 3 interlocking isometric facets forming an elevated monolithic unit. Expresses the modular integration of Core OS, Vertical Packs, and Automation workflows.
+      </div>
+    </div>
+
+    <!-- Concept D -->
+    <div class="concept-card">
+      <div class="card-header">
+        <div class="concept-meta">
+          <h3>Concept D: The Singularity Nexus</h3>
+          <span class="theme-tag">D. Convergence</span>
+        </div>
+      </div>
+      <div class="card-preview-stage" id="stage-d">
+        <svg class="horizontal-lockup-preview" viewBox="0 0 340 70" fill="none">
+          <g transform="translate(8, 8) scale(0.54)">
+            <path d="M50 12 L68 30 L59 39 L50 30 L41 39 L32 30 Z" fill="currentColor" />
+            <path d="M50 88 L68 70 L59 61 L50 70 L41 61 L32 70 Z" fill="currentColor" />
+            <path d="M12 50 L30 32 L39 41 L30 50 L39 59 L30 68 Z" class="accent-color" fill="#0D9488" />
+            <path d="M88 50 L70 32 L61 41 L70 50 L61 59 L70 68 Z" class="accent-color" fill="#0D9488" />
+            <rect x="46" y="46" width="8" height="8" rx="1.5" fill="currentColor" />
+          </g>
+          <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="currentColor">AECTURA</text>
+          <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" class="accent-color" fill="#0D9488">PRACTICE OS</text>
+        </svg>
+      </div>
+      <div class="scale-matrix">
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+              <path d="M50 12 L68 30 L59 39 L50 30 L41 39 L32 30 Z" fill="currentColor" />
+              <path d="M50 88 L68 70 L59 61 L50 70 L41 61 L32 70 Z" fill="currentColor" />
+              <path d="M12 50 L30 32 L39 41 L30 50 L39 59 L30 68 Z" class="accent-color" fill="#0D9488" />
+              <path d="M88 50 L70 32 L61 41 L70 50 L61 59 L70 68 Z" class="accent-color" fill="#0D9488" />
+            </svg>
+          </div>
+          <span class="size-label">16×16</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+              <path d="M50 12 L68 30 L59 39 L50 30 L41 39 L32 30 Z" fill="currentColor" />
+              <path d="M50 88 L68 70 L59 61 L50 70 L41 61 L32 70 Z" fill="currentColor" />
+              <path d="M12 50 L30 32 L39 41 L30 50 L39 59 L30 68 Z" class="accent-color" fill="#0D9488" />
+              <path d="M88 50 L70 32 L61 41 L70 50 L61 59 L70 68 Z" class="accent-color" fill="#0D9488" />
+            </svg>
+          </div>
+          <span class="size-label">24×24</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+              <path d="M50 12 L68 30 L59 39 L50 30 L41 39 L32 30 Z" fill="currentColor" />
+              <path d="M50 88 L68 70 L59 61 L50 70 L41 61 L32 70 Z" fill="currentColor" />
+              <path d="M12 50 L30 32 L39 41 L30 50 L39 59 L30 68 Z" class="accent-color" fill="#0D9488" />
+              <path d="M88 50 L70 32 L61 41 L70 50 L61 59 L70 68 Z" class="accent-color" fill="#0D9488" />
+            </svg>
+          </div>
+          <span class="size-label">48×48</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="54" height="54" viewBox="0 0 100 100" fill="none">
+              <path d="M50 12 L68 30 L59 39 L50 30 L41 39 L32 30 Z" fill="currentColor" />
+              <path d="M50 88 L68 70 L59 61 L50 70 L41 61 L32 70 Z" fill="currentColor" />
+              <path d="M12 50 L30 32 L39 41 L30 50 L39 59 L30 68 Z" class="accent-color" fill="#0D9488" />
+              <path d="M88 50 L70 32 L61 41 L70 50 L61 59 L70 68 Z" class="accent-color" fill="#0D9488" />
+            </svg>
+          </div>
+          <span class="size-label">128×128</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <strong>Rationale:</strong> 4 balanced directional chevrons directing inward toward a central focus. Represents bringing calendars, patients, clinical charts, and billing into unified focus.
+      </div>
+    </div>
+
+    <!-- Concept E -->
+    <div class="concept-card">
+      <div class="card-header">
+        <div class="concept-meta">
+          <h3>Concept E: The Orthogonal Router</h3>
+          <span class="theme-tag">E. Intelligent Routing</span>
+        </div>
+      </div>
+      <div class="card-preview-stage" id="stage-e">
+        <svg class="horizontal-lockup-preview" viewBox="0 0 340 70" fill="none">
+          <g transform="translate(8, 8) scale(0.54)">
+            <rect x="18" y="16" width="12" height="68" rx="3" fill="currentColor" opacity="0.9" />
+            <path d="M30 26 H62 C70 26 76 32 76 40 V46" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M30 74 H54 C66 74 76 64 76 52" class="accent-color" stroke="#0D9488" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="76" cy="49" r="6" class="accent-color" fill="#0D9488" />
+            <circle cx="24" cy="50" r="3.5" fill="#FFFFFF" />
+          </g>
+          <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="currentColor">AECTURA</text>
+          <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" class="accent-color" fill="#0D9488">PRACTICE OS</text>
+        </svg>
+      </div>
+      <div class="scale-matrix">
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+              <rect x="18" y="16" width="14" height="68" rx="3" fill="currentColor" />
+              <path d="M30 28 H64 C72 28 78 34 78 42 V48" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>
+              <path d="M30 72 H56 C68 72 78 62 78 50" class="accent-color" stroke="#0D9488" stroke-width="12" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="size-label">16×16</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+              <rect x="18" y="16" width="12" height="68" rx="3" fill="currentColor" />
+              <path d="M30 26 H62 C70 26 76 32 76 40 V46" stroke="currentColor" stroke-width="10" stroke-linecap="round"/>
+              <path d="M30 74 H54 C66 74 76 64 76 52" class="accent-color" stroke="#0D9488" stroke-width="10" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="size-label">24×24</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+              <rect x="18" y="16" width="12" height="68" rx="3" fill="currentColor" />
+              <path d="M30 26 H62 C70 26 76 32 76 40 V46" stroke="currentColor" stroke-width="10" stroke-linecap="round"/>
+              <path d="M30 74 H54 C66 74 76 64 76 52" class="accent-color" stroke="#0D9488" stroke-width="10" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="size-label">48×48</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="54" height="54" viewBox="0 0 100 100" fill="none">
+              <rect x="18" y="16" width="12" height="68" rx="3" fill="currentColor" />
+              <path d="M30 26 H62 C70 26 76 32 76 40 V46" stroke="currentColor" stroke-width="10" stroke-linecap="round"/>
+              <path d="M30 74 H54 C66 74 76 64 76 52" class="accent-color" stroke="#0D9488" stroke-width="10" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="size-label">128×128</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <strong>Rationale:</strong> Heavy architectural spine branching into dual output channels. Reflects high-velocity intelligence, patient triage, and workflow dispatching.
+      </div>
+    </div>
+
+    <!-- Concept F -->
+    <div class="concept-card">
+      <div class="card-header">
+        <div class="concept-meta">
+          <h3>Concept F: The Architectonic Apex</h3>
+          <span class="theme-tag">F. Subtle 'A' + Architecture</span>
+        </div>
+      </div>
+      <div class="card-preview-stage" id="stage-f">
+        <svg class="horizontal-lockup-preview" viewBox="0 0 340 70" fill="none">
+          <g transform="translate(8, 8) scale(0.54)">
+            <polygon points="20,86 32,86 44,24 32,24" fill="currentColor" />
+            <polygon points="68,86 80,86 68,24 56,24" fill="currentColor" />
+            <rect x="28" y="16" width="44" height="11" rx="2" fill="currentColor" />
+            <polygon points="50,40 60,56 40,56" class="accent-color" fill="#0D9488" />
+            <rect x="37" y="62" width="26" height="5" rx="1.5" class="accent-color" fill="#0D9488" opacity="0.8" />
+          </g>
+          <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="currentColor">AECTURA</text>
+          <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" class="accent-color" fill="#0D9488">PRACTICE OS</text>
+        </svg>
+      </div>
+      <div class="scale-matrix">
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+              <polygon points="20,86 34,86 46,24 32,24" fill="currentColor" />
+              <polygon points="66,86 80,86 68,24 54,24" fill="currentColor" />
+              <rect x="28" y="16" width="44" height="12" rx="2" fill="currentColor" />
+              <polygon points="50,42 62,58 38,58" class="accent-color" fill="#0D9488" />
+            </svg>
+          </div>
+          <span class="size-label">16×16</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+              <polygon points="20,86 32,86 44,24 32,24" fill="currentColor" />
+              <polygon points="68,86 80,86 68,24 56,24" fill="currentColor" />
+              <rect x="28" y="16" width="44" height="11" rx="2" fill="currentColor" />
+              <polygon points="50,40 60,56 40,56" class="accent-color" fill="#0D9488" />
+            </svg>
+          </div>
+          <span class="size-label">24×24</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+              <polygon points="20,86 32,86 44,24 32,24" fill="currentColor" />
+              <polygon points="68,86 80,86 68,24 56,24" fill="currentColor" />
+              <rect x="28" y="16" width="44" height="11" rx="2" fill="currentColor" />
+              <polygon points="50,40 60,56 40,56" class="accent-color" fill="#0D9488" />
+            </svg>
+          </div>
+          <span class="size-label">48×48</span>
+        </div>
+        <div class="scale-box">
+          <div class="symbol-render-box">
+            <svg width="54" height="54" viewBox="0 0 100 100" fill="none">
+              <polygon points="20,86 32,86 44,24 32,24" fill="currentColor" />
+              <polygon points="68,86 80,86 68,24 56,24" fill="currentColor" />
+              <rect x="28" y="16" width="44" height="11" rx="2" fill="currentColor" />
+              <polygon points="50,40 60,56 40,56" class="accent-color" fill="#0D9488" />
+            </svg>
+          </div>
+          <span class="size-label">128×128</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <strong>Rationale:</strong> Classical architectural portal archway with a suspended central keystone evoking the letter 'A'. Represents foundational institutional stability and gatekeeping trust.
+      </div>
+    </div>
+
+  </div> <!-- /concepts-grid -->
+
+  <!-- Section 2: Real-World UI Context Mockups -->
+  <h2 class="section-title">Contextual Application Mockups</h2>
+  <p class="section-subtitle">Simulating live placement within SaaS web headers, clinic dashboard sidebars, browser tabs, and executive business cards.</p>
+
+  <div class="mockup-grid">
+    
+    <!-- 1. Website Header Mockup -->
+    <div class="mockup-card">
+      <div class="mockup-header">
+        <span>1. SaaS Public Header Mockup (Featuring Concept F - Apex)</span>
+        <span style="color: var(--accent-teal);">Live Render</span>
+      </div>
+      <div class="web-header-mockup">
+        <div style="width: 170px; height: 36px;">
+          <svg viewBox="0 0 340 70" fill="none" width="100%" height="100%">
+            <g transform="translate(8, 8) scale(0.54)">
+              <polygon points="20,86 32,86 44,24 32,24" fill="#FFFFFF" />
+              <polygon points="68,86 80,86 68,24 56,24" fill="#FFFFFF" />
+              <rect x="28" y="16" width="44" height="11" rx="2" fill="#FFFFFF" />
+              <polygon points="50,40 60,56 40,56" fill="#0D9488" />
+              <rect x="37" y="62" width="26" height="5" rx="1.5" fill="#0D9488" opacity="0.8" />
+            </g>
+            <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="#FFFFFF">AECTURA</text>
+            <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" fill="#0D9488">PRACTICE OS</text>
+          </svg>
+        </div>
+        <div class="web-nav">
+          <span style="color: #fff;">Platform</span>
+          <span>Vertical Packs</span>
+          <span>Security</span>
+          <span>Pricing</span>
+        </div>
+        <div class="web-cta">Book Live Demo</div>
+      </div>
+      <div style="padding: 16px; font-size: 12px; color: var(--text-muted); background: #111315;">
+        Demonstrates horizontal balance and readability alongside high-density modern SaaS navigation menus.
+      </div>
+    </div>
+
+    <!-- 2. Dashboard Sidebar Mockup -->
+    <div class="mockup-card">
+      <div class="mockup-header">
+        <span>2. PracticeOS Staff Dashboard Sidebar (Featuring Concept C - Prismatic)</span>
+        <span style="color: var(--accent-teal);">111315 Dark Charcoal</span>
+      </div>
+      <div class="sidebar-mockup-wrapper">
+        <div class="sidebar-pane">
+          <div style="width: 150px; height: 32px;">
+            <svg viewBox="0 0 340 70" fill="none" width="100%" height="100%">
+              <g transform="translate(8, 8) scale(0.54)">
+                <polygon points="50,14 82,32 50,50 18,32" fill="#0D9488" />
+                <polygon points="18,37 48,54 48,88 18,71" fill="#FFFFFF" opacity="0.9" />
+                <polygon points="52,54 82,37 82,71 52,88" fill="#FFFFFF" opacity="0.72" />
+              </g>
+              <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="#FFFFFF">AECTURA</text>
+              <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" fill="#0D9488">PRACTICE OS</text>
+            </svg>
+          </div>
+          <div class="sidebar-items">
+            <div class="sidebar-item active">Calendar &amp; Slots</div>
+            <div class="sidebar-item">360° Patients</div>
+            <div class="sidebar-item">Clinical Notes</div>
+            <div class="sidebar-item">Invoices &amp; Billing</div>
+            <div class="sidebar-item">Clinic Settings</div>
+          </div>
+        </div>
+        <div class="dashboard-main">
+          <div style="font-size: 14px; font-weight: 600; color: #fff;">MindWell Psychology &bull; Today's Schedule</div>
+          <div class="dash-stat-row">
+            <div class="dash-stat-card">
+              <div style="font-size: 11px; color: #9CA3AF;">Confirmed Today</div>
+              <div style="font-size: 18px; font-weight: 700; color: #2DD4BF;">8 Sessions</div>
+            </div>
+            <div class="dash-stat-card">
+              <div style="font-size: 11px; color: #9CA3AF;">Pending Intake</div>
+              <div style="font-size: 18px; font-weight: 700; color: #F59E0B;">2 Patients</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="padding: 16px; font-size: 12px; color: var(--text-muted); background: #111315;">
+        Demonstrates brand mark scale within high-utility clinician workflow screens.
+      </div>
+    </div>
+
+    <!-- 3. Browser Tab Favicon Simulation -->
+    <div class="mockup-card">
+      <div class="mockup-header">
+        <span>3. Browser Tab 16×16 Favicon Simulation</span>
+        <span style="color: var(--accent-teal);">Real Size Check</span>
+      </div>
+      <div style="padding: 24px; background: #0D0F12;">
+        <div class="browser-window">
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <div class="browser-dot" style="background: #EF4444;"></div>
+              <div class="browser-dot" style="background: #F59E0B;"></div>
+              <div class="browser-dot" style="background: #10B981;"></div>
+            </div>
+            <div class="browser-tab">
+              <!-- Favicon 16x16: Concept F -->
+              <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+                <polygon points="20,86 34,86 46,24 32,24" fill="#FFFFFF" />
+                <polygon points="66,86 80,86 68,24 54,24" fill="#FFFFFF" />
+                <rect x="28" y="16" width="44" height="12" rx="2" fill="#FFFFFF" />
+                <polygon points="50,42 62,58 38,58" fill="#0D9488" />
+              </svg>
+              <span>PracticeOS &bull; Hamdani Clinic Portal</span>
+            </div>
+            <div class="browser-tab" style="opacity: 0.6; background: transparent; border-color: transparent;">
+              <!-- Favicon 16x16: Concept A -->
+              <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+                <g fill="#9CA3AF"><rect x="42" y="10" width="16" height="16" rx="3"/><rect x="42" y="74" width="16" height="16" rx="3"/><rect x="10" y="42" width="16" height="16" rx="3"/><rect x="74" y="42" width="16" height="16" rx="3"/></g>
+                <path d="M50 26 L50 40 M50 60 L50 74 M26 50 L40 50 M60 50 L74 50" stroke="#9CA3AF" stroke-width="8" stroke-linecap="round"/>
+              </svg>
+              <span>Aectura Architecture Docs</span>
+            </div>
+          </div>
+          <div style="padding: 24px; color: #6B7280; font-size: 13px;">
+            At 16×16px, the symbol remains instantly recognizable and distinguishable against dark and light browser chrome.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Business Card Mockup -->
+    <div class="mockup-card">
+      <div class="mockup-header">
+        <span>4. Physical Business Card Mockup (Print / Tactile Test)</span>
+        <span style="color: var(--accent-teal);">Light &amp; Dark Foil</span>
+      </div>
+      <div class="cards-stage">
+        <!-- Dark Card -->
+        <div class="biz-card dark">
+          <div>
+            <div style="width: 140px; height: 32px;">
+              <svg viewBox="0 0 340 70" fill="none" width="100%" height="100%">
+                <g transform="translate(8, 8) scale(0.54)">
+                  <polygon points="20,86 32,86 44,24 32,24" fill="#FFFFFF" />
+                  <polygon points="68,86 80,86 68,24 56,24" fill="#FFFFFF" />
+                  <rect x="28" y="16" width="44" height="11" rx="2" fill="#FFFFFF" />
+                  <polygon points="50,40 60,56 40,56" fill="#0D9488" />
+                </g>
+                <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="#FFFFFF">AECTURA</text>
+                <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" fill="#0D9488">PRACTICE OS</text>
+              </svg>
+            </div>
+          </div>
+          <div class="card-footer-info">
+            <div style="color: #FFFFFF; font-weight: 600; font-size: 10px;">Executive Infrastructure</div>
+            <div>infra.aectura.com &bull; London &bull; New York</div>
+          </div>
+        </div>
+
+        <!-- Light Card -->
+        <div class="biz-card light">
+          <div>
+            <div style="width: 140px; height: 32px;">
+              <svg viewBox="0 0 340 70" fill="none" width="100%" height="100%">
+                <g transform="translate(8, 8) scale(0.54)">
+                  <polygon points="20,86 32,86 44,24 32,24" fill="#111315" />
+                  <polygon points="68,86 80,86 68,24 56,24" fill="#111315" />
+                  <rect x="28" y="16" width="44" height="11" rx="2" fill="#111315" />
+                  <polygon points="50,40 60,56 40,56" fill="#0D9488" />
+                </g>
+                <text x="74" y="38" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="#111315">AECTURA</text>
+                <text x="75" y="55" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" fill="#0D9488">PRACTICE OS</text>
+              </svg>
+            </div>
+          </div>
+          <div class="card-footer-info">
+            <div style="color: #111315; font-weight: 600; font-size: 10px;">Dr. Marcus Vance</div>
+            <div>Chief Medical Officer &bull; Aectura Health</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding: 16px; font-size: 12px; color: var(--text-muted); background: #111315;">
+        Evaluates physical print viability with heavy cotton stock and debossed foil stamping.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Section 3: Human Evaluation & Review Scorecard -->
+  <div class="evaluation-panel">
+    <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Evaluation &amp; Human Review Scorecard</h2>
+    <p style="color: var(--text-secondary); font-size: 13px;">
+      As instructed, Antigravity does not select the winner. Review the conceptual attributes below and provide your preferred direction:
+    </p>
+
+    <table class="eval-table">
+      <thead>
+        <tr>
+          <th>Concept</th>
+          <th>Conceptual Meaning</th>
+          <th>Favicon 16px Clarity</th>
+          <th>Brand Quality Alignment</th>
+          <th>Key Aesthetic Feature</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Concept A</strong></td>
+          <td>Interconnected Infrastructure</td>
+          <td>High (4 bold peripheral nodes)</td>
+          <td>Technical, Decentralized</td>
+          <td>Balanced synchronous grid nodes</td>
+        </tr>
+        <tr>
+          <td><strong>Concept B</strong></td>
+          <td>Controlled Flow</td>
+          <td>Very High (bold parallel tracks)</td>
+          <td>Calm, Fluid, Humane</td>
+          <td>Laminar 90° radiused routing lines</td>
+        </tr>
+        <tr>
+          <td><strong>Concept C</strong></td>
+          <td>Modular Systems</td>
+          <td>High (isometric silhouette)</td>
+          <td>Architectural, Monolithic</td>
+          <td>3 interlocking faceted prisms</td>
+        </tr>
+        <tr>
+          <td><strong>Concept D</strong></td>
+          <td>Convergence</td>
+          <td>High (inward chevrons)</td>
+          <td>Intelligent, Unified</td>
+          <td>Gravitational focus toward central core</td>
+        </tr>
+        <tr>
+          <td><strong>Concept E</strong></td>
+          <td>Intelligent Routing</td>
+          <td>Very High (solid thick bars)</td>
+          <td>Algorithmic, Decisive</td>
+          <td>Heavy vertical spine with dual bus</td>
+        </tr>
+        <tr>
+          <td><strong>Concept F</strong></td>
+          <td>Subtle 'A' + Architecture</td>
+          <td>Outstanding (monolithic archway)</td>
+          <td>Premium, Institutional, Trustworthy</td>
+          <td>Architectural arch with floating keystone</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  let isMonochrome = false;
+
+  function setTheme(theme) {
+    document.getElementById('btn-dark').classList.toggle('active', theme === 'dark');
+    document.getElementById('btn-light').classList.toggle('active', theme === 'light');
+    
+    const stages = document.querySelectorAll('.card-preview-stage');
+    stages.forEach(stage => {
+      if (theme === 'light') {
+        stage.classList.add('light-theme');
+      } else {
+        stage.classList.remove('light-theme');
+      }
+    });
+  }
+
+  function toggleMonochrome() {
+    isMonochrome = !isMonochrome;
+    document.getElementById('btn-mono').classList.toggle('active', isMonochrome);
+    
+    const stages = document.querySelectorAll('.card-preview-stage');
+    stages.forEach(stage => {
+      stage.classList.toggle('monochrome-theme', isMonochrome);
+    });
+  }
+</script>
+
+</body>
+</html>

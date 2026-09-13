@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 70" width="100%" height="100%" fill="none">
+  <!-- Concept A: Interconnected Infrastructure Lockup -->
+  <g transform="translate(8, 8) scale(0.54)">
+    <g fill="currentColor">
+      <rect x="42" y="10" width="16" height="16" rx="3" />
+      <rect x="42" y="74" width="16" height="16" rx="3" />
+      <rect x="10" y="42" width="16" height="16" rx="3" />
+      <rect x="74" y="42" width="16" height="16" rx="3" />
+    </g>
+    <path d="M50 26 L50 40 M50 60 L50 74 M26 50 L40 50 M60 50 L74 50" stroke="currentColor" stroke-width="7" stroke-linecap="round" />
+    <path d="M26 26 L38 38 M62 38 L74 26 M38 62 L26 74 M62 62 L74 74" stroke="currentColor" stroke-width="6" stroke-linecap="round" opacity="0.85" />
+    <circle cx="50" cy="50" r="4.5" fill="#0D9488" />
+  </g>
+  <text x="74" y="38" font-family="system-ui, -apple-system, 'Plus Jakarta Sans', 'Inter', sans-serif" font-size="25" font-weight="700" letter-spacing="0.18em" fill="currentColor">AECTURA</text>
+  <text x="75" y="55" font-family="system-ui, -apple-system, 'Plus Jakarta Sans', 'Inter', sans-serif" font-size="9" font-weight="600" letter-spacing="0.34em" fill="#0D9488">PRACTICE OS</text>
+</svg>

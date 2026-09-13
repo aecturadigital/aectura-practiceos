@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" fill="none">
+  <!-- Concept A: Interconnected Infrastructure (The Synchronous Lattice) -->
+  <!-- 4 Orthogonal Nodes connected by structural conduits with central negative diamond -->
+  <g fill="currentColor">
+    <!-- Top Node -->
+    <rect x="42" y="10" width="16" height="16" rx="3" />
+    <!-- Bottom Node -->
+    <rect x="42" y="74" width="16" height="16" rx="3" />
+    <!-- Left Node -->
+    <rect x="10" y="42" width="16" height="16" rx="3" />
+    <!-- Right Node -->
+    <rect x="74" y="42" width="16" height="16" rx="3" />
+  </g>
+  <!-- Interconnecting Conduits -->
+  <path d="M50 26 L50 40 M50 60 L50 74 M26 50 L40 50 M60 50 L74 50" stroke="currentColor" stroke-width="7" stroke-linecap="round" />
+  <!-- Diagonal Structural Braces -->
+  <path d="M26 26 L38 38 M62 38 L74 26 M38 62 L26 74 M62 62 L74 74" stroke="currentColor" stroke-width="6" stroke-linecap="round" opacity="0.85" />
+  <!-- Center Micro-Nexus -->
+  <circle cx="50" cy="50" r="4.5" fill="#0D9488" />
+</svg>

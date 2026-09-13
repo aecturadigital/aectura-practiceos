@@ -1,0 +1,20 @@
+{
+  "plugins": {
+    "modern-web-guidance": {
+      "enabled": true,
+      "description": "Evergreen best practices for accessible, secure, and performant modern web applications."
+    },
+    "chrome-devtools": {
+      "enabled": true,
+      "description": "Chrome DevTools and Puppeteer integration for browser testing, accessibility audits, Core Web Vitals checks, and visual debugging."
+    },
+    "google-maps-platform": {
+      "enabled": true,
+      "description": "Location, place autocomplete, address validation, and interactive mapping workflows for multi-tenant clinics."
+    },
+    "firebase-bundle": {
+      "enabled": false,
+      "description": "Disabled intentionally: Aectura utilizes self-hosted PostgreSQL, Drizzle ORM, and Cloudflare R2 instead of Firebase backend services."
+    }
+  }
+}
