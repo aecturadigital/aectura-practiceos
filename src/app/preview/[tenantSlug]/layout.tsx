@@ -1,8 +1,17 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { getTenantBySlug } from "@/lib/db/tenant-db";
+import { mockStore } from "@/lib/mock/store";
 import { notFound } from "next/navigation";
-import { Eye, ShieldAlert, ArrowLeft, LayoutDashboard } from "lucide-react";
+import { Eye, ShieldAlert, ArrowLeft, LayoutDashboard, Building2 } from "lucide-react";
+
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return [
+    { tenantSlug: "mindwell-psychology" },
+    { tenantSlug: "motionplus-physiotherapy" }
+  ];
+}
 
 // CRITICAL REQUIREMENT: PREVIEW tenants must be noindex/nofollow
 export const metadata: Metadata = {
@@ -17,14 +26,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function PreviewLayout({
+export default function PreviewLayout({
   children,
   params,
 }: {
   children: React.ReactNode;
   params: { tenantSlug: string };
 }) {
-  const tenant = await getTenantBySlug(params.tenantSlug);
+  const tenant = mockStore.getTenant(params.tenantSlug);
   if (!tenant) {
     notFound();
   }
@@ -44,21 +53,21 @@ export default async function PreviewLayout({
           </span>
           <span className="text-slate-400 hidden sm:inline">&bull;</span>
           <span className="text-white font-medium">{tenant.name}</span>
-          <span className="text-slate-400 capitalize">({tenant.vertical} Vertical &bull; {tenant.plan} Plan)</span>
+          <span className="text-slate-400 capitalize">({tenant.verticalId} Vertical &bull; {tenant.planId} Plan)</span>
         </div>
 
         <div className="flex items-center gap-3">
           <Link
-            href={`/dashboard/${tenant.slug}`}
+            href="/app"
             className="inline-flex items-center gap-1.5 bg-[#0D9488] hover:bg-[#0F766E] text-white px-3 py-1 rounded font-medium transition-colors"
           >
-            <LayoutDashboard className="w-3.5 h-3.5" /> Open Staff Dashboard
+            <LayoutDashboard className="w-3.5 h-3.5" /> Open Staff Workspace
           </Link>
           <Link
-            href="/admin"
+            href="/platform"
             className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Super Admin
+            <Building2 className="w-3.5 h-3.5" /> Platform
           </Link>
         </div>
       </div>
