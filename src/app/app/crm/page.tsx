@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Layers,
@@ -35,6 +35,7 @@ const STAGES: Array<{ id: CrmStage; label: string; dotColor: string }> = [
 
 export default function LeadsPage() {
   const { activeTenant, vertical, hasAccess } = useTenant();
+  const [deals, setDeals] = useState<CrmDeal[]>([]);
   const [search, setSearch] = useState("");
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
 
@@ -50,11 +51,19 @@ export default function LeadsPage() {
   const [newPriority, setNewPriority] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
   const [newSource, setNewSource] = useState<any>("WEBSITE");
 
+  const loadDeals = () => {
+    setDeals(mockStore.getCrmDeals(activeTenant.id));
+  };
+
+  useEffect(() => {
+    loadDeals();
+    const unsub = mockStore.subscribe(loadDeals);
+    return () => unsub();
+  }, [activeTenant.id]);
+
   if (!hasAccess("crm")) {
     return <UpgradeBanner feature="crm" />;
   }
-
-  const deals = mockStore.getCrmDeals(activeTenant.id);
 
   const filteredDeals = deals.filter(
     (d) =>
@@ -155,6 +164,9 @@ export default function LeadsPage() {
             </h1>
             <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
               {deals.length} In Pipeline
+            </span>
+            <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200">
+              ₹{deals.reduce((sum, d) => sum + d.value, 0).toLocaleString("en-IN")} Total Value
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -378,7 +390,7 @@ export default function LeadsPage() {
                 className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-medium transition-colors shadow-sm"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>Open 360 Client Card</span>
+                <span>Open 360° Client Card</span>
               </Link>
 
               <Link

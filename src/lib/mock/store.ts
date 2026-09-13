@@ -22,20 +22,25 @@ import {
   SEED_MINDWELL_CONTACTS,
   SEED_MOTIONPLUS_CONTACTS,
   SEED_MINDWELL_APPOINTMENTS,
+  SEED_MOTIONPLUS_APPOINTMENTS,
   SEED_MINDWELL_CRM_DEALS,
+  SEED_MOTIONPLUS_CRM_DEALS,
   SEED_MINDWELL_MESSAGES,
+  SEED_MOTIONPLUS_MESSAGES,
   SEED_MINDWELL_CONVERSATIONS,
+  SEED_MOTIONPLUS_CONVERSATIONS,
   SEED_MOTIONPLUS_EXERCISES,
   SEED_FORMS,
   SEED_FORM_SUBMISSIONS,
   SEED_MINDWELL_REVIEWS,
+  SEED_MOTIONPLUS_REVIEWS,
   SEED_AUTOMATIONS,
   SEED_KNOWLEDGE_DOCS,
   SEED_AUDIT_LOGS,
   SEED_WEBSITE_CONFIGS,
 } from "./seed";
 
-const STORAGE_KEY = "aectura_mock_store_v2";
+const STORAGE_KEY = "aectura_mock_store_v3";
 
 export interface MockStoreData {
   tenants: Tenant[];
@@ -60,14 +65,14 @@ function getInitialData(): MockStoreData {
     tenants: [...SEED_TENANTS],
     activeTenantId: "tenant-mindwell",
     contacts: [...SEED_MINDWELL_CONTACTS, ...SEED_MOTIONPLUS_CONTACTS],
-    appointments: [...SEED_MINDWELL_APPOINTMENTS],
-    crmDeals: [...SEED_MINDWELL_CRM_DEALS],
-    messages: [...SEED_MINDWELL_MESSAGES],
-    conversations: [...SEED_MINDWELL_CONVERSATIONS],
+    appointments: [...SEED_MINDWELL_APPOINTMENTS, ...SEED_MOTIONPLUS_APPOINTMENTS],
+    crmDeals: [...SEED_MINDWELL_CRM_DEALS, ...SEED_MOTIONPLUS_CRM_DEALS],
+    messages: [...SEED_MINDWELL_MESSAGES, ...SEED_MOTIONPLUS_MESSAGES],
+    conversations: [...SEED_MINDWELL_CONVERSATIONS, ...SEED_MOTIONPLUS_CONVERSATIONS],
     exercises: [...SEED_MOTIONPLUS_EXERCISES],
     forms: [...SEED_FORMS],
     formSubmissions: [...SEED_FORM_SUBMISSIONS],
-    reviews: [...SEED_MINDWELL_REVIEWS],
+    reviews: [...SEED_MINDWELL_REVIEWS, ...SEED_MOTIONPLUS_REVIEWS],
     automations: [...SEED_AUTOMATIONS],
     knowledgeDocs: [...SEED_KNOWLEDGE_DOCS],
     auditLogs: [...SEED_AUDIT_LOGS],
@@ -232,6 +237,9 @@ class MockStore {
   }
 
   public getContact(id: string): Contact | undefined {
+    if (id === "cnt-01") {
+      return this.data.contacts.find((c) => c.id === "cnt-mw-priya");
+    }
     return this.data.contacts.find((c) => c.id === id);
   }
 

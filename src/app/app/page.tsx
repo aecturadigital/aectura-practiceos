@@ -39,8 +39,10 @@ export default function StaffDashboardPage() {
   const messages = mockStore.getMessages(activeTenant.id);
 
   const todayAppointments = appointments.slice(0, 5);
-  const newEnquiries = deals.filter((d) => d.stage === "NEW_ENQUIRY" || d.stage === "CONTACTED");
-  const pendingFollowUps = deals.filter((d) => d.priority === "HIGH" || d.stage === "QUALIFIED");
+  const newEnquiries = deals.filter((d) => d.stage === "NEW_ENQUIRY");
+  const pendingFollowUps = deals.filter((d) => d.stage === "CONTACTED" || d.stage === "QUALIFIED" || d.priority === "HIGH");
+  const conversations = mockStore.getConversations(activeTenant.id);
+  const unreadConversations = conversations.filter((c) => c.unreadCount > 0);
   const recentMessages = messages.slice(0, 4);
 
   // Quick Add Contact Modal
@@ -50,12 +52,12 @@ export default function StaffDashboardPage() {
   const [quickService, setQuickService] = useState(activeTenant.services?.[0]?.name || "Consultation");
   const [quickSuccess, setQuickSuccess] = useState(false);
 
-  // Quick Tasks State
+  // Quick Tasks State (All referencing canonical demo contacts)
   const [tasks, setTasks] = useState([
-    { id: "t-1", title: "Review intake form: Rahul Mehta", type: "form", urgent: true, done: false },
-    { id: "t-2", title: "Confirm WhatsApp booking: Priya Sharma (2:30 PM)", type: "booking", urgent: true, done: false },
-    { id: "t-3", title: "Follow-up callback: Vikram Malhotra", type: "call", urgent: false, done: false },
-    { id: "t-4", title: "Prepare clinical progress note: Anita Sen", type: "note", urgent: false, done: false },
+    { id: "t-1", title: "Review intake form: Aisha Khan", type: "form", urgent: true, done: false },
+    { id: "t-2", title: "Confirm WhatsApp booking: Priya Sharma (4:30 PM)", type: "booking", urgent: true, done: false },
+    { id: "t-3", title: "Follow-up callback: Rohan Verma", type: "call", urgent: false, done: false },
+    { id: "t-4", title: "Prepare clinical progress note: Rajesh Patel", type: "note", urgent: false, done: false },
   ]);
 
   const toggleTask = (id: string) => {
@@ -161,7 +163,7 @@ export default function StaffDashboardPage() {
             <UserPlus className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-semibold text-slate-900 tabular-nums">
-            {newEnquiries.length || 3}
+            {newEnquiries.length}
           </p>
           <p className="text-xs text-teal-700 font-medium mt-1">
             Awaiting first contact
@@ -178,7 +180,7 @@ export default function StaffDashboardPage() {
             <Clock className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-semibold text-slate-900 tabular-nums">
-            {pendingFollowUps.length || 2}
+            {pendingFollowUps.length}
           </p>
           <p className="text-xs text-amber-700 font-medium mt-1">
             Due before clinic close
@@ -195,10 +197,10 @@ export default function StaffDashboardPage() {
             <MessageSquare className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-semibold text-slate-900 tabular-nums">
-            {recentMessages.filter((m) => m.status !== "READ").length || 2}
+            {unreadConversations.length}
           </p>
           <p className="text-xs text-slate-500 mt-1">
-            WhatsApp &amp; Portal triage
+            {unreadConversations.length} awaiting response
           </p>
         </Link>
       </div>

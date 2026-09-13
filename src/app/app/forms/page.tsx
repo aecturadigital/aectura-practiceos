@@ -234,7 +234,19 @@ export default function StaffFormsPage() {
                     className="hover:bg-slate-50 cursor-pointer transition-colors"
                   >
                     <td className="py-3 px-4 font-semibold text-slate-900">{sub.formTitle}</td>
-                    <td className="py-3 px-4 text-slate-800 font-medium">{sub.contactName}</td>
+                    <td className="py-3 px-4 text-slate-800 font-medium">
+                      {sub.contactId ? (
+                        <Link
+                          href={`/app/contacts/${sub.contactId}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-teal-700 hover:underline"
+                        >
+                          {sub.contactName}
+                        </Link>
+                      ) : (
+                        sub.contactName
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-slate-500 font-mono">{sub.contactEmail}</td>
                     <td className="py-3 px-4 text-slate-500 font-mono">
                       {new Date(sub.submittedAt).toLocaleDateString()}
@@ -259,8 +271,19 @@ export default function StaffFormsPage() {
                 <h3 className="text-base font-semibold text-slate-900">
                   {selectedSubmission.formTitle}
                 </h3>
-                <p className="text-xs text-slate-500">
-                  From {selectedSubmission.contactName} ({selectedSubmission.contactEmail})
+                <p className="text-xs text-slate-500 mt-0.5">
+                  From{" "}
+                  {selectedSubmission.contactId ? (
+                    <Link
+                      href={`/app/contacts/${selectedSubmission.contactId}`}
+                      className="text-teal-700 hover:underline font-medium"
+                    >
+                      {selectedSubmission.contactName}
+                    </Link>
+                  ) : (
+                    selectedSubmission.contactName
+                  )}{" "}
+                  ({selectedSubmission.contactEmail})
                 </p>
               </div>
               <button
@@ -282,7 +305,18 @@ export default function StaffFormsPage() {
               ))}
             </div>
 
-            <div className="flex justify-end pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              {selectedSubmission.contactId ? (
+                <Link
+                  href={`/app/contacts/${selectedSubmission.contactId}`}
+                  className="text-xs font-medium text-teal-700 hover:text-teal-800 flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open 360° Client Card</span>
+                </Link>
+              ) : (
+                <div />
+              )}
               <button
                 onClick={() => setSelectedSubmission(null)}
                 className="px-3.5 py-1.5 text-xs font-medium rounded-md border border-slate-200 hover:bg-slate-50"

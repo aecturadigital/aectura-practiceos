@@ -240,9 +240,12 @@ export default function StaffInboxPage() {
             {/* Thread Header */}
             <div className="h-14 border-b border-slate-200 px-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="font-semibold text-sm text-slate-900 truncate">
+                <Link
+                  href={`/app/contacts/${activeConv.contactId}`}
+                  className="font-semibold text-sm text-slate-900 truncate hover:text-teal-700 hover:underline"
+                >
                   {activeConv.contactName}
-                </span>
+                </Link>
                 {getChannelBadge(activeConv.channel)}
               </div>
 
@@ -375,7 +378,7 @@ export default function StaffInboxPage() {
                 className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                <span>Open 360 Client Card</span>
+                <span>Open 360° Client Card</span>
               </Link>
             </div>
           </div>

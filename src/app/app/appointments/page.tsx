@@ -353,9 +353,11 @@ export default function AppointmentsCalendarPage() {
                         {apt.serviceName}
                       </p>
 
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px] text-slate-400">
-                        <span className="truncate max-w-[80px]">{apt.staffName.split(" ")[0]}</span>
-                        <span className="font-mono uppercase">{apt.mode === "ONLINE" ? "Video" : "Clinic"}</span>
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px]">
+                        <span className="font-medium text-slate-700 truncate max-w-[120px]">{apt.staffName}</span>
+                        <span className="font-mono text-[9px] uppercase px-1 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                          {apt.mode === "ONLINE" ? "Video" : "In Person"}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -573,7 +575,7 @@ export default function AppointmentsCalendarPage() {
                 className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-medium transition-colors shadow-sm"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>Open 360 Client Card</span>
+                <span>Open 360° Client Card</span>
               </Link>
             </div>
           </div>

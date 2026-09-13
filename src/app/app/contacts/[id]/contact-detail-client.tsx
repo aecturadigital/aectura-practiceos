@@ -104,6 +104,7 @@ export default function ContactDetailPage() {
   const appointments = mockStore.getAppointments(activeTenant.id).filter((a) => a.contactId === contact.id);
   const messages = mockStore.getMessages(activeTenant.id, contact.id);
   const exercises = mockStore.getExercises(activeTenant.id, contact.id);
+  const submissions = mockStore.getFormSubmissions(activeTenant.id).filter((s) => s.contactId === contact.id);
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,14 +220,14 @@ export default function ContactDetailPage() {
       desc: m.content,
       badge: m.channel,
     })),
-    {
-      id: "intake-1",
-      date: "2026-08-25",
+    ...submissions.map((s) => ({
+      id: s.id,
+      date: s.submittedAt.split("T")[0],
       type: "form" as const,
-      title: "Online Clinical Intake Form Completed",
-      desc: "Patient completed general demographic screener and pain/concern scale.",
+      title: `${s.formTitle} Submitted`,
+      desc: Object.entries(s.answers || {}).slice(0, 2).map(([k, v]) => `${k.replace(/([A-Z])/g, ' $1')}: ${v}`).join(" • ") || "Clinical responses logged.",
       badge: "Intake",
-    },
+    })),
     {
       id: "created-1",
       date: contact.createdAt.split("T")[0],
@@ -641,26 +642,35 @@ export default function ContactDetailPage() {
           {activeTab === "forms" && (
             <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-none space-y-3">
               <h3 className="text-sm font-semibold text-slate-900">Completed Assessments &amp; Questionnaires</h3>
-              <div className="divide-y divide-slate-100 text-xs">
-                <div className="py-3 flex items-center justify-between">
-                  <div>
-                    <span className="font-medium text-slate-900 block">General Clinical Intake &amp; Consent</span>
-                    <span className="text-slate-400 text-[11px]">Submitted on Aug 25, 2026 &bull; Verified by Desk</span>
-                  </div>
-                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[10px] font-medium">
-                    Verified
-                  </span>
+              {submissions.length === 0 ? (
+                <p className="text-xs text-slate-400 py-6 text-center">No completed form submissions on record for this {vertical.terminology.contactSingular.toLowerCase()}.</p>
+              ) : (
+                <div className="divide-y divide-slate-100 text-xs">
+                  {submissions.map((sub) => (
+                    <div key={sub.id} className="py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium text-slate-900 block">{sub.formTitle}</span>
+                          <span className="text-slate-400 text-[11px]">
+                            Submitted on {new Date(sub.submittedAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })} &bull; Verified by Desk
+                          </span>
+                        </div>
+                        <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[10px] font-medium">
+                          Verified
+                        </span>
+                      </div>
+                      <div className="bg-slate-50 p-2.5 rounded border border-slate-200 space-y-1 text-[11px]">
+                        {Object.entries(sub.answers || {}).map(([k, val]) => (
+                          <div key={k} className="flex flex-col sm:flex-row sm:items-baseline gap-1">
+                            <span className="text-slate-500 font-medium capitalize min-w-[140px]">{k.replace(/([A-Z])/g, ' $1')}:</span>
+                            <span className="text-slate-800">{String(val)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="py-3 flex items-center justify-between">
-                  <div>
-                    <span className="font-medium text-slate-900 block">Symptom Severity Screening (GAD-7 / VAS)</span>
-                    <span className="text-slate-400 text-[11px]">Score: 14/21 (Moderate) &bull; Submitted Aug 25, 2026</span>
-                  </div>
-                  <span className="text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200 text-[10px] font-medium">
-                    Reviewed
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
           )}
 

@@ -1,19 +1,15 @@
 import ContactDetailPageClient from "./contact-detail-client";
+import { SEED_MINDWELL_CONTACTS, SEED_MOTIONPLUS_CONTACTS } from "@/lib/mock/seed";
 
-export const dynamicParams = false;
+export const dynamicParams = true;
 
 export function generateStaticParams() {
-  return [
-    { id: "cnt-01" },
-    { id: "cnt-02" },
-    { id: "cnt-03" },
-    { id: "cnt-04" },
-    { id: "cnt-05" },
-    { id: "cnt-06" },
-    { id: "c1" },
-    { id: "c2" },
-    { id: "c3" }
+  const allContactIds = [
+    "cnt-01",
+    ...SEED_MINDWELL_CONTACTS.map((c) => c.id),
+    ...SEED_MOTIONPLUS_CONTACTS.map((c) => c.id),
   ];
+  return allContactIds.map((id) => ({ id }));
 }
 
 export default function ContactDetailPage() {

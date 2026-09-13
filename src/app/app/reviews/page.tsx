@@ -45,7 +45,12 @@ export default function StaffReviewsPage() {
   const avgRating =
     reviews.length > 0
       ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
-      : "5.0";
+      : "—";
+
+  const positiveShare =
+    reviews.length > 0
+      ? Math.round((reviews.filter((r) => r.rating >= 4).length / reviews.length) * 100)
+      : 0;
 
   const ratingCounts = [5, 4, 3, 2, 1].map((stars) => ({
     stars,
@@ -111,18 +116,24 @@ export default function StaffReviewsPage() {
           <span className="text-xs font-medium text-slate-500 block mb-1">Average Rating</span>
           <div className="flex items-center gap-2">
             <span className="text-2xl font-semibold text-slate-900 font-mono">{avgRating}</span>
-            <div className="flex text-amber-500">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="w-3.5 h-3.5 fill-current" />
-              ))}
-            </div>
+            {reviews.length > 0 ? (
+              <div className="flex text-amber-500">
+                {[...Array(Math.round(Number(avgRating) || 5))].map((_, i) => (
+                  <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">No reviews recorded yet</span>
+            )}
           </div>
           <p className="text-xs text-slate-400 mt-1">Across Google and verified submissions</p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-none">
           <span className="text-xs font-medium text-slate-500 block mb-1">Feedback Velocity</span>
-          <span className="text-2xl font-semibold text-slate-900 font-mono">100%</span>
+          <span className="text-2xl font-semibold text-slate-900 font-mono">
+            {reviews.length > 0 ? `${positiveShare}%` : "—"}
+          </span>
           <p className="text-xs text-emerald-700 font-medium mt-1">Positive rating share</p>
         </div>
 
@@ -138,7 +149,12 @@ export default function StaffReviewsPage() {
 
       {/* Reviews List */}
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-none divide-y divide-slate-100">
-        {filteredReviews.map((rev) => (
+        {filteredReviews.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400">
+            {reviews.length === 0 ? "No reviews recorded yet." : "No reviews match your filter."}
+          </div>
+        ) : (
+          filteredReviews.map((rev) => (
           <div key={rev.id} className="p-4 space-y-1.5 hover:bg-slate-50/70 transition-colors">
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
@@ -158,7 +174,8 @@ export default function StaffReviewsPage() {
 
             <p className="text-xs text-slate-600 leading-relaxed">{rev.comment}</p>
           </div>
-        ))}
+        ))
+      )}
       </div>
 
       {/* Request Modal */}
