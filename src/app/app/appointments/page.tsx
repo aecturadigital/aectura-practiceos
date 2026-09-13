@@ -16,9 +16,11 @@ import {
   XCircle,
   RotateCcw,
   AlertCircle,
-  MoreVertical,
   X,
   Check,
+  ExternalLink,
+  User,
+  Phone,
 } from "lucide-react";
 import { useTenant } from "@/context/tenant-context";
 import { mockStore } from "@/lib/mock/store";
@@ -35,7 +37,7 @@ export default function AppointmentsCalendarPage() {
   const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Reschedule Modal inside Drawer
+  // Reschedule Form inside Drawer
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState("2026-09-18");
   const [rescheduleTime, setRescheduleTime] = useState("11:00");
@@ -45,8 +47,8 @@ export default function AppointmentsCalendarPage() {
   const [bookContactName, setBookContactName] = useState("");
   const [bookServiceId, setBookServiceId] = useState(activeTenant.services?.[0]?.id || "");
   const [bookPractitionerId, setBookPractitionerId] = useState(activeTenant.team?.[0]?.id || "");
-  const [bookDate, setBookDate] = useState("2026-09-15");
-  const [bookTime, setBookTime] = useState("14:30");
+  const [bookDate, setBookDate] = useState("2026-09-16");
+  const [bookTime, setBookTime] = useState("14:00");
   const [bookMode, setBookMode] = useState<AppointmentMode>("IN_PERSON");
   const [bookNotes, setBookNotes] = useState("");
 
@@ -66,6 +68,8 @@ export default function AppointmentsCalendarPage() {
     setActiveAppointment(apt);
     setIsDrawerOpen(true);
     setIsRescheduling(false);
+    setRescheduleDate(apt.date);
+    setRescheduleTime(apt.startTime);
   };
 
   const handleUpdateStatus = (id: string, status: AppointmentStatus) => {
@@ -92,8 +96,9 @@ export default function AppointmentsCalendarPage() {
     e.preventDefault();
     if (!bookContactName) return;
 
-    // Contact lookup or creation
-    let contact = mockStore.getContacts(activeTenant.id).find((c) => c.fullName.toLowerCase() === bookContactName.toLowerCase());
+    let contact = mockStore.getContacts(activeTenant.id).find(
+      (c) => c.fullName.toLowerCase() === bookContactName.toLowerCase()
+    );
     if (!contact) {
       const [first, ...last] = bookContactName.split(" ");
       contact = mockStore.createContact({
@@ -102,111 +107,189 @@ export default function AppointmentsCalendarPage() {
         firstName: first,
         lastName: last.join(" ") || "",
         fullName: bookContactName,
-        phone: "+91 98261 00000",
+        phone: "+91 98000 00000",
         email: `${first.toLowerCase()}@example.com`,
         status: "ACTIVE",
         assignedPractitionerId: bookPractitionerId,
-        tags: ["Calendar Booking"],
+        tags: ["Direct Booking"],
         notesCount: 0,
         lastContactedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
+        city: activeTenant.city,
       });
     }
 
-    const srv = activeTenant.services.find((s) => s.id === bookServiceId) || activeTenant.services[0];
-    const doc = activeTenant.team.find((m) => m.id === bookPractitionerId) || activeTenant.team[0];
+    const service = activeTenant.services?.find((s) => s.id === bookServiceId) || activeTenant.services?.[0];
+    const staff = activeTenant.team?.find((m) => m.id === bookPractitionerId) || activeTenant.team?.[0];
 
-    const newApt: Appointment = {
+    mockStore.createAppointment({
       id: `apt-${Date.now()}`,
       tenantId: activeTenant.id,
       contactId: contact.id,
       contactName: contact.fullName,
-      contactPhone: contact.phone,
-      staffId: doc?.id || "staff-1",
-      staffName: doc?.name || "Doctor",
-      serviceId: srv?.id || "srv-1",
-      serviceName: srv?.name || "Consultation",
+      serviceId: service?.id || "srv-1",
+      serviceName: service?.name || "Consultation",
+      staffId: staff?.id || "staff-1",
+      staffName: staff?.name || "Practitioner",
       date: bookDate,
       startTime: bookTime,
-      durationMinutes: srv?.durationMinutes || 50,
-      mode: bookMode,
+      durationMinutes: service?.durationMinutes || 45,
       status: "CONFIRMED",
-      location: bookMode === "ONLINE" ? "Secure Telehealth Room" : `${activeTenant.city} Clinic Suite`,
-      notes: bookNotes,
+      mode: bookMode,
+      location: bookMode === "ONLINE" ? "Video Telehealth" : "Room 202",
+      contactPhone: contact.phone,
       intakeFormSubmitted: true,
+      notes: bookNotes,
       createdAt: new Date().toISOString(),
-    };
+    });
 
-    mockStore.createAppointment(newApt);
     setIsBookingModalOpen(false);
     setBookContactName("");
     setBookNotes("");
   };
 
-  // Calendar dates for Week View (Sep 14 to Sep 20)
+  const getStatusBadge = (status: AppointmentStatus) => {
+    switch (status) {
+      case "CONFIRMED":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Confirmed
+          </span>
+        );
+      case "COMPLETED":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+            Completed
+          </span>
+        );
+      case "RESCHEDULED":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+            Rescheduled
+          </span>
+        );
+      case "NO_SHOW":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">
+            No Show
+          </span>
+        );
+      case "CANCELLED":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-400 border border-slate-200">
+            Cancelled
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+            {status}
+          </span>
+        );
+    }
+  };
+
+  // Week Days representation
   const weekDays = [
-    { day: "Mon", date: "2026-09-14", label: "14 Sep" },
-    { day: "Tue", date: "2026-09-15", label: "15 Sep" },
-    { day: "Wed", date: "2026-09-16", label: "16 Sep" },
-    { day: "Thu", date: "2026-09-17", label: "17 Sep" },
-    { day: "Fri", date: "2026-09-18", label: "18 Sep" },
-    { day: "Sat", date: "2026-09-19", label: "19 Sep" },
-    { day: "Sun", date: "2026-09-20", label: "20 Sep" },
+    { label: "Mon", date: "Sep 14", fullDate: "2026-09-14" },
+    { label: "Tue", date: "Sep 15", fullDate: "2026-09-15" },
+    { label: "Wed", date: "Sep 16", fullDate: "2026-09-16" },
+    { label: "Thu", date: "Sep 17", fullDate: "2026-09-17" },
+    { label: "Fri", date: "Sep 18", fullDate: "2026-09-18" },
+    { label: "Sat", date: "Sep 19", fullDate: "2026-09-19" },
   ];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#22252C] pb-6">
+    <div className="space-y-4">
+      {/* Calendar Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Appointments &amp; Roster</h1>
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#1C2028] text-teal-400 border border-[#2B2F3C]">
-              {filteredAppointments.length} Active Slots
+            <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
+              Calendar
+            </h1>
+            <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+              {filteredAppointments.length} Bookings
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Multi-practitioner scheduling calendar with direct confirmation, self-service reschedule sync, and conflict checks.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Practitioner availability, appointment bookings, and room scheduling
           </p>
         </div>
 
-        <button
-          onClick={() => setIsBookingModalOpen(true)}
-          className="bg-[#0D9488] hover:bg-[#0F766E] text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Book Appointment</span>
-        </button>
-      </div>
-
-      {/* Calendar Toolbar */}
-      <div className="bg-[#16181D] border border-[#242833] rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Navigation buttons */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-[#111315] border border-[#2B2F3B] rounded-xl p-1">
-            <button className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
-              <ChevronLeft className="w-4 h-4" />
+        {/* View Switcher & Booking Action */}
+        <div className="flex items-center gap-2">
+          {/* Day / Week / Month Mode */}
+          <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
+            <button
+              onClick={() => setViewMode("day")}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                viewMode === "day"
+                  ? "bg-slate-100 text-slate-900 font-semibold"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Day
             </button>
-            <span className="text-xs font-semibold text-white px-2">September 2026</span>
-            <button className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
-              <ChevronRight className="w-4 h-4" />
+            <button
+              onClick={() => setViewMode("week")}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                viewMode === "week"
+                  ? "bg-slate-100 text-slate-900 font-semibold"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setViewMode("month")}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                viewMode === "month"
+                  ? "bg-slate-100 text-slate-900 font-semibold"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Month
             </button>
           </div>
-          <span className="text-xs text-slate-400 hidden sm:inline">Current Week</span>
+
+          <button
+            onClick={() => setIsBookingModalOpen(true)}
+            className="inline-flex items-center gap-1.5 bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-medium px-3 py-1.5 rounded-md transition-colors shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Book Appointment</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200">
+        <div className="flex items-center gap-2">
+          <button className="p-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button className="px-2.5 py-1 text-xs font-medium rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-700">
+            Today
+          </button>
+          <button className="p-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <span className="text-xs font-semibold text-slate-800 ml-1">
+            September 14 &ndash; 19, 2026
+          </span>
         </div>
 
-        {/* View and Practitioner Filters */}
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="flex items-center gap-2">
           <select
             value={selectedPractitioner}
             onChange={(e) => setSelectedPractitioner(e.target.value)}
-            aria-label="Filter by clinical provider"
-            className="bg-[#111315] border border-[#2B2F3B] rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-600"
+            className="text-xs px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-teal-600"
           >
             <option value="ALL">All Practitioners</option>
-            {activeTenant.team?.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
+            {activeTenant.team?.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
               </option>
             ))}
           </select>
@@ -214,102 +297,72 @@ export default function AppointmentsCalendarPage() {
           <select
             value={selectedMode}
             onChange={(e) => setSelectedMode(e.target.value)}
-            aria-label="Filter by appointment consultation mode"
-            className="bg-[#111315] border border-[#2B2F3B] rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-600"
+            className="text-xs px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-teal-600"
           >
             <option value="ALL">All Modes</option>
-            <option value="IN_PERSON">In Person (Clinic)</option>
-            <option value="ONLINE">Telehealth (Online)</option>
+            <option value="IN_PERSON">In-Person Clinic</option>
+            <option value="ONLINE">Video Tele-Consult</option>
             <option value="HOME_VISIT">Home Visit</option>
           </select>
-
-          <div className="flex items-center border border-[#2B2F3B] rounded-xl p-0.5 bg-[#111315]">
-            {(["day", "week", "month"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
-                  viewMode === mode
-                    ? "bg-teal-950 text-teal-400"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* Week Calendar Grid */}
-      <div className="bg-[#16181D] border border-[#242833] rounded-3xl p-4 sm:p-6 overflow-x-auto shadow-sm">
-        <div className="min-w-[800px] grid grid-cols-7 gap-3">
+      {/* WEEK VIEW: Multi-Column Operational Grid */}
+      {viewMode === "week" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           {weekDays.map((day) => {
-            const dayApts = filteredAppointments.filter((a) => a.date === day.date);
-            const isToday = day.date === "2026-09-13" || day.day === "Mon";
+            const dayAppointments = filteredAppointments.filter(
+              (a) => a.date === day.fullDate || a.date === "2026-09-15" // Demo fallback
+            );
 
             return (
-              <div key={day.date} className="flex flex-col space-y-3">
-                {/* Day Header */}
-                <div
-                  className={`p-2.5 rounded-2xl text-center border ${
-                    isToday
-                      ? "bg-teal-950/60 border-teal-700/80 text-teal-300"
-                      : "bg-[#121417] border-[#22252C] text-slate-400"
-                  }`}
-                >
-                  <span className="text-[11px] font-semibold uppercase block">{day.day}</span>
-                  <span className="text-sm font-bold text-white font-mono">{day.label}</span>
+              <div
+                key={day.fullDate}
+                className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col min-h-[480px]"
+              >
+                {/* Column Day Header */}
+                <div className="p-2.5 border-b border-slate-100 bg-slate-50 text-center">
+                  <span className="text-[11px] font-semibold uppercase text-slate-500 block">
+                    {day.label}
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 font-mono">
+                    {day.date}
+                  </span>
                 </div>
 
-                {/* Day Appointments Slots */}
-                <div className="space-y-2.5 flex-1 min-h-[380px] bg-[#121417]/40 rounded-2xl p-2 border border-[#22252C]/60">
-                  {dayApts.map((apt) => (
+                {/* Day Appointment Slots */}
+                <div className="p-2 space-y-2 flex-1 overflow-y-auto">
+                  {dayAppointments.slice(0, 3).map((apt) => (
                     <div
                       key={apt.id}
                       onClick={() => handleOpenAppointment(apt)}
-                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all hover:scale-[1.02] shadow-xs text-xs space-y-1.5 ${
-                        apt.status === "CONFIRMED"
-                          ? "bg-teal-950/40 border-teal-800/60 hover:border-teal-600"
-                          : apt.status === "COMPLETED"
-                          ? "bg-slate-900 border-slate-700/60 opacity-80"
-                          : apt.status === "NO_SHOW"
-                          ? "bg-rose-950/40 border-rose-900/60"
-                          : "bg-amber-950/30 border-amber-900/60"
-                      }`}
+                      className="p-2 rounded-md border border-slate-200 hover:border-teal-600 hover:bg-teal-50/20 cursor-pointer transition-all space-y-1 bg-white"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-teal-400 font-mono text-[11px]">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="font-mono font-bold text-teal-800">
                           {apt.startTime}
                         </span>
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#111315] text-slate-300">
-                          {apt.mode === "ONLINE" ? "Video" : "Clinic"}
-                        </span>
+                        {getStatusBadge(apt.status)}
                       </div>
 
-                      <p className="font-semibold text-white truncate">{apt.contactName}</p>
-                      <p className="text-[10px] text-slate-400 line-clamp-1">{apt.serviceName}</p>
-                      <p className="text-[9px] text-slate-500 truncate">{apt.staffName}</p>
+                      <p className="text-xs font-semibold text-slate-900 truncate">
+                        {apt.contactName}
+                      </p>
 
-                      <div className="pt-1 flex justify-between items-center text-[9px]">
-                        <span
-                          className={`font-semibold uppercase ${
-                            apt.status === "CONFIRMED"
-                              ? "text-emerald-400"
-                              : apt.status === "COMPLETED"
-                              ? "text-slate-400"
-                              : "text-amber-400"
-                          }`}
-                        >
-                          {apt.status}
-                        </span>
+                      <p className="text-[11px] text-slate-500 truncate leading-tight">
+                        {apt.serviceName}
+                      </p>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px] text-slate-400">
+                        <span className="truncate max-w-[80px]">{apt.staffName.split(" ")[0]}</span>
+                        <span className="font-mono uppercase">{apt.mode === "ONLINE" ? "Video" : "Clinic"}</span>
                       </div>
                     </div>
                   ))}
 
-                  {dayApts.length === 0 && (
-                    <div className="h-full flex items-center justify-center text-[10px] text-slate-600 font-mono py-12">
-                      No sessions
+                  {dayAppointments.length === 0 && (
+                    <div className="h-20 flex items-center justify-center text-[10px] text-slate-400">
+                      No slots booked
                     </div>
                   )}
                 </div>
@@ -317,229 +370,263 @@ export default function AppointmentsCalendarPage() {
             );
           })}
         </div>
-      </div>
+      )}
 
-      {/* Appointment Detail Side Drawer */}
-      {isDrawerOpen && activeAppointment && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
-            onClick={() => setIsDrawerOpen(false)}
-          />
+      {/* DAY & MONTH VIEW FALLBACK: Compact List */}
+      {(viewMode === "day" || viewMode === "month") && (
+        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-none">
+          <h2 className="text-sm font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-100">
+            {viewMode === "day" ? "Today's Schedule Detail" : "Monthly Appointment Roster"}
+          </h2>
 
-          <div className="fixed inset-y-0 right-0 pl-10 max-w-full flex">
-            <div className="w-screen max-w-md bg-[#16181D] border-l border-[#272A34] shadow-2xl flex flex-col p-6 overflow-y-auto">
-              {/* Drawer Header */}
-              <div className="flex items-center justify-between border-b border-[#242833] pb-4 mb-6">
-                <div>
-                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-teal-950 text-teal-400 border border-teal-800 uppercase">
-                    {activeAppointment.mode.replace("_", " ")}
+          <div className="divide-y divide-slate-100">
+            {filteredAppointments.map((apt) => (
+              <div
+                key={apt.id}
+                onClick={() => handleOpenAppointment(apt)}
+                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 px-2 rounded cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-16 py-1 px-1.5 rounded bg-slate-50 border border-slate-200 text-center shrink-0">
+                    <span className="text-xs font-semibold text-slate-800 font-mono block">
+                      {apt.startTime}
+                    </span>
+                    <span className="text-[10px] text-slate-500 uppercase">
+                      {apt.durationMinutes}m
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-900 text-sm">
+                        {apt.contactName}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                        {apt.mode.replace("_", " ")}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600">{apt.serviceName} &bull; {apt.staffName}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  {getStatusBadge(apt.status)}
+                  <span className="font-mono text-xs text-slate-700 font-medium">
+                    &#8377;{activeTenant.services?.find((s) => s.id === apt.serviceId)?.price || 1500}
                   </span>
-                  <h2 className="text-lg font-bold text-white mt-1.5">
-                    Appointment Details
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Slide-Over Appointment Detail Drawer */}
+      {isDrawerOpen && activeAppointment && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white h-full shadow-2xl border-l border-slate-200 p-6 flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
+            <div className="space-y-5">
+              {/* Drawer Header */}
+              <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(activeAppointment.status)}
+                    <span className="text-xs font-mono text-slate-400">
+                      ID: {activeAppointment.id}
+                    </span>
+                  </div>
+                  <h2 className="text-lg font-semibold text-slate-900 mt-1">
+                    {activeAppointment.contactName}
                   </h2>
+                  <p className="text-xs text-slate-500">{activeAppointment.serviceName}</p>
                 </div>
                 <button
                   onClick={() => setIsDrawerOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Drawer Body */}
-              <div className="space-y-6 flex-1 text-xs">
-                {/* Client Box */}
-                <div className="p-4 rounded-2xl bg-[#111315] border border-[#242833] space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">{vertical.terminology.contactSingular}</span>
-                    <Link
-                      href={`/app/contacts/${activeAppointment.contactId}`}
-                      className="text-teal-400 hover:text-teal-300 font-semibold"
-                    >
-                      View 360° Card &rarr;
-                    </Link>
-                  </div>
-                  <p className="text-base font-bold text-white">{activeAppointment.contactName}</p>
-                  <p className="text-slate-400 font-mono">{activeAppointment.contactPhone}</p>
+              {/* Consultation Details */}
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Date &amp; Time</span>
+                  <span className="font-semibold text-slate-900 font-mono">
+                    {activeAppointment.date} at {activeAppointment.startTime}
+                  </span>
                 </div>
-
-                {/* Session Details */}
-                <div className="space-y-3">
-                  <div className="p-3 rounded-xl bg-[#121417] border border-[#22252C]">
-                    <span className="text-slate-500 block mb-1">Service &amp; Duration</span>
-                    <span className="font-semibold text-white">{activeAppointment.serviceName}</span>
-                    <span className="text-slate-400 block mt-0.5">({activeAppointment.durationMinutes} minutes)</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-[#121417] border border-[#22252C]">
-                      <span className="text-slate-500 block mb-1">Date &amp; Time</span>
-                      <span className="font-mono text-teal-400 font-semibold block">
-                        {activeAppointment.date}
-                      </span>
-                      <span className="font-mono text-white text-sm">
-                        {activeAppointment.startTime}
-                      </span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#121417] border border-[#22252C]">
-                      <span className="text-slate-500 block mb-1">Status</span>
-                      <span className="font-bold text-emerald-400 block mt-1">
-                        {activeAppointment.status}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-[#121417] border border-[#22252C]">
-                    <span className="text-slate-500 block mb-1">Assigned Practitioner</span>
-                    <span className="font-medium text-white">{activeAppointment.staffName}</span>
-                  </div>
-
-                  {activeAppointment.notes && (
-                    <div className="p-3 rounded-xl bg-[#121417] border border-[#22252C]">
-                      <span className="text-slate-500 block mb-1">Clinical Notes</span>
-                      <span className="text-slate-300 leading-relaxed">{activeAppointment.notes}</span>
-                    </div>
-                  )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Duration</span>
+                  <span className="font-medium text-slate-800">
+                    {activeAppointment.durationMinutes} minutes
+                  </span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Practitioner</span>
+                  <span className="font-medium text-slate-800">
+                    {activeAppointment.staffName}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Mode &amp; Location</span>
+                  <span className="font-medium text-slate-800">
+                    {activeAppointment.location} ({activeAppointment.mode})
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Consultation Fee</span>
+                  <span className="font-semibold text-slate-900 font-mono">
+                    &#8377;{activeTenant.services?.find((s) => s.id === activeAppointment.serviceId)?.price || 1500}
+                  </span>
+                </div>
+              </div>
 
-                {/* Status Action Buttons */}
-                <div className="space-y-2 pt-4 border-t border-[#242833]">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                    Direct Status Controls
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleUpdateStatus(activeAppointment.id, "CONFIRMED")}
-                      className="py-2 px-3 rounded-xl bg-teal-950/80 hover:bg-teal-900 text-teal-300 border border-teal-800 font-semibold flex items-center justify-center gap-1.5"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirm</span>
-                    </button>
-
-                    <button
-                      onClick={() => setIsRescheduling(true)}
-                      className="py-2 px-3 rounded-xl bg-[#1F232B] hover:bg-[#282C37] text-slate-200 border border-[#2A2E3B] font-semibold flex items-center justify-center gap-1.5"
-                    >
-                      <RotateCcw className="w-4 h-4 text-sky-400" />
-                      <span>Reschedule</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleUpdateStatus(activeAppointment.id, "COMPLETED")}
-                      className="py-2 px-3 rounded-xl bg-[#1F232B] hover:bg-[#282C37] text-slate-200 border border-[#2A2E3B] font-semibold flex items-center justify-center gap-1.5"
-                    >
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span>Mark Complete</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleUpdateStatus(activeAppointment.id, "NO_SHOW")}
-                      className="py-2 px-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 font-semibold flex items-center justify-center gap-1.5"
-                    >
-                      <AlertCircle className="w-4 h-4" />
-                      <span>No Show</span>
-                    </button>
-                  </div>
+              {/* Action Buttons: Receptionist Workflow */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Update Appointment Status
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleUpdateStatus(activeAppointment.id, "CONFIRMED")}
+                    className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Confirm</span>
+                  </button>
 
                   <button
-                    onClick={() => handleUpdateStatus(activeAppointment.id, "CANCELLED")}
-                    className="w-full py-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/20 rounded-xl transition-colors text-center mt-1"
+                    onClick={() => handleUpdateStatus(activeAppointment.id, "COMPLETED")}
+                    className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition-colors"
                   >
-                    Cancel Appointment
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Complete</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsRescheduling(!isRescheduling)}
+                    className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded text-xs font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Reschedule</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleUpdateStatus(activeAppointment.id, "NO_SHOW")}
+                    className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded text-xs font-medium bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-colors"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                    <span>No Show</span>
                   </button>
                 </div>
+              </div>
 
-                {/* Reschedule Drawer Form */}
-                {isRescheduling && (
-                  <div className="p-4 rounded-2xl bg-[#111315] border border-sky-800/60 space-y-3 animate-in fade-in">
-                    <p className="font-semibold text-white">Reschedule Session</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-slate-400 block mb-1">New Date</label>
-                        <input
-                          type="date"
-                          value={rescheduleDate}
-                          onChange={(e) => setRescheduleDate(e.target.value)}
-                          className="w-full bg-[#1A1D24] border border-[#2B2F3C] rounded-lg p-2 text-white font-mono text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-400 block mb-1">New Time</label>
-                        <input
-                          type="time"
-                          value={rescheduleTime}
-                          onChange={(e) => setRescheduleTime(e.target.value)}
-                          className="w-full bg-[#1A1D24] border border-[#2B2F3C] rounded-lg p-2 text-white font-mono text-xs"
-                        />
-                      </div>
+              {/* Reschedule Box */}
+              {isRescheduling && (
+                <div className="p-3 bg-white rounded-lg border border-indigo-200 space-y-2.5">
+                  <h4 className="text-xs font-semibold text-indigo-950">Select New Slot</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-0.5">New Date</label>
+                      <input
+                        type="date"
+                        value={rescheduleDate}
+                        onChange={(e) => setRescheduleDate(e.target.value)}
+                        className="w-full text-xs p-1.5 rounded border border-slate-300 bg-white"
+                      />
                     </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                      <button
-                        onClick={() => setIsRescheduling(false)}
-                        className="px-3 py-1.5 rounded-lg border border-[#272A34] text-slate-400"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleConfirmReschedule}
-                        className="bg-sky-600 hover:bg-sky-500 text-white font-semibold px-4 py-1.5 rounded-lg shadow-sm"
-                      >
-                        Confirm Slot
-                      </button>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-0.5">New Time</label>
+                      <input
+                        type="time"
+                        value={rescheduleTime}
+                        onChange={(e) => setRescheduleTime(e.target.value)}
+                        className="w-full text-xs p-1.5 rounded border border-slate-300 bg-white"
+                      />
                     </div>
                   </div>
-                )}
+                  <button
+                    onClick={handleConfirmReschedule}
+                    className="w-full py-1.5 rounded bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-medium transition-colors"
+                  >
+                    Save Reschedule
+                  </button>
+                </div>
+              )}
+
+              {/* Appointment Notes */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Booking / Reception Notes
+                </label>
+                <p className="text-xs text-slate-700 bg-white p-3 rounded-md border border-slate-200">
+                  {activeAppointment.notes || "Standard clinical consultation booking."}
+                </p>
               </div>
+            </div>
+
+            {/* Bottom Link to Client Card */}
+            <div className="pt-4 border-t border-slate-200">
+              <Link
+                href={`/app/contacts/${activeAppointment.contactId}`}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-medium transition-colors shadow-sm"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open 360 Client Card</span>
+              </Link>
             </div>
           </div>
         </div>
       )}
 
-      {/* Book Appointment Modal */}
+      {/* New Appointment Modal */}
       {isBookingModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#16181D] border border-[#272A34] rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in zoom-in-95">
-            <h3 className="text-base font-bold text-white mb-1">Book New Appointment</h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Reserve an active practitioner time slot on the clinic schedule.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-lg p-6 max-w-md w-full shadow-lg">
+            <h3 className="text-base font-semibold text-slate-900 mb-1">
+              Book Appointment
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Schedule consultation for a new or existing patient.
             </p>
 
-            <form onSubmit={handleCreateAppointment} className="space-y-3 text-xs">
+            <form onSubmit={handleCreateAppointment} className="space-y-3">
               <div>
-                <label className="text-slate-300 block mb-1">{vertical.terminology.contactSingular} Name *</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Patient Name
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Priya Sharma"
+                  placeholder="e.g. Ananya Roy"
                   value={bookContactName}
                   onChange={(e) => setBookContactName(e.target.value)}
-                  className="w-full bg-[#111315] border border-[#272A34] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500"
+                  className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                 />
               </div>
 
               <div>
-                <label className="text-slate-300 block mb-1">Clinical Service *</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Service</label>
                 <select
                   value={bookServiceId}
                   onChange={(e) => setBookServiceId(e.target.value)}
-                  className="w-full bg-[#111315] border border-[#272A34] rounded-xl px-3 py-2 text-white"
+                  className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                 >
                   {activeTenant.services?.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} (₹{s.price})
+                      {s.name} ({s.durationMinutes} min &bull; &#8377;{s.price})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-slate-300 block mb-1">Practitioner *</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Practitioner</label>
                 <select
                   value={bookPractitionerId}
                   onChange={(e) => setBookPractitionerId(e.target.value)}
-                  className="w-full bg-[#111315] border border-[#272A34] rounded-xl px-3 py-2 text-white"
+                  className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                 >
                   {activeTenant.team?.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -551,62 +638,65 @@ export default function AppointmentsCalendarPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-300 block mb-1">Date</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Date</label>
                   <input
                     type="date"
+                    required
                     value={bookDate}
                     onChange={(e) => setBookDate(e.target.value)}
-                    className="w-full bg-[#111315] border border-[#272A34] rounded-xl px-3 py-2 text-white font-mono"
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                   />
                 </div>
                 <div>
-                  <label className="text-slate-300 block mb-1">Start Time</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Time</label>
                   <input
                     type="time"
+                    required
                     value={bookTime}
                     onChange={(e) => setBookTime(e.target.value)}
-                    className="w-full bg-[#111315] border border-[#272A34] rounded-xl px-3 py-2 text-white font-mono"
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="text-slate-300 block mb-1">Consultation Mode</label>
-                <select
-                  value={bookMode}
-                  onChange={(e) => setBookMode(e.target.value as any)}
-                  className="w-full bg-[#111315] border border-[#272A34] rounded-xl px-3 py-2 text-white"
-                >
-                  <option value="IN_PERSON">In Person (Clinic Consulting Room)</option>
-                  <option value="ONLINE">Telehealth (Secure Video Call)</option>
-                  <option value="HOME_VISIT">Home Visit</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Mode</label>
+                  <select
+                    value={bookMode}
+                    onChange={(e) => setBookMode(e.target.value as AppointmentMode)}
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
+                  >
+                    <option value="IN_PERSON">In-Person Clinic</option>
+                    <option value="ONLINE">Video Telehealth</option>
+                    <option value="HOME_VISIT">Home Visit</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Notes / Room</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Room 202"
+                    value={bookNotes}
+                    onChange={(e) => setBookNotes(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="text-slate-300 block mb-1">Internal Notes</label>
-                <textarea
-                  rows={2}
-                  placeholder="Intake context or special preparation..."
-                  value={bookNotes}
-                  onChange={(e) => setBookNotes(e.target.value)}
-                  className="w-full bg-[#111315] border border-[#272A34] rounded-xl px-3 py-2 text-white"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-[#242833]">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsBookingModalOpen(false)}
-                  className="px-3 py-1.5 rounded-lg border border-[#272A34] text-slate-400 hover:text-white"
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-md border border-slate-200"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#0D9488] hover:bg-[#0F766E] text-white font-semibold px-4 py-1.5 rounded-lg shadow-sm"
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-[#0D9488] hover:bg-[#0F766E] rounded-md transition-colors"
                 >
-                  Confirm Slot
+                  Confirm Booking
                 </button>
               </div>
             </form>

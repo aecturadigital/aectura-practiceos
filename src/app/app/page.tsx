@@ -3,32 +3,32 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  Users,
   Calendar,
   Clock,
-  TrendingUp,
   UserPlus,
-  PlusCircle,
+  Plus,
   MessageSquare,
   CheckCircle2,
-  AlertTriangle,
+  AlertCircle,
   ArrowRight,
   Phone,
   Video,
   MapPin,
-  Sparkles,
-  ExternalLink,
   ChevronRight,
-  MoreVertical,
+  Check,
+  Send,
+  Sparkles,
+  Inbox,
+  Filter,
 } from "lucide-react";
 import { useTenant } from "@/context/tenant-context";
 import { mockStore } from "@/lib/mock/store";
-import { AppointmentStatus, Contact, Appointment, CrmDeal } from "@/types";
+import { AppointmentStatus, Contact, Appointment, CrmDeal, Message } from "@/types";
 
 export default function StaffDashboardPage() {
   const { activeTenant, vertical, plan } = useTenant();
 
-  // Find primary practitioner name
+  // Find lead practitioner
   const practitioner = activeTenant.team?.find(
     (m) => m.role === "OWNER" || m.role === "PRACTITIONER"
   ) || { name: "Doctor" };
@@ -38,31 +38,45 @@ export default function StaffDashboardPage() {
   const deals = mockStore.getCrmDeals(activeTenant.id);
   const messages = mockStore.getMessages(activeTenant.id);
 
-  const todayAppointments = appointments.slice(0, 4);
-  const newEnquiries = deals.filter((d) => d.stage === "NEW_ENQUIRY" || d.stage === "CONTACTED").slice(0, 4);
-  const aiHandoffs = deals.filter((d) => d.priority === "HIGH").slice(0, 2);
+  const todayAppointments = appointments.slice(0, 5);
+  const newEnquiries = deals.filter((d) => d.stage === "NEW_ENQUIRY" || d.stage === "CONTACTED");
+  const pendingFollowUps = deals.filter((d) => d.priority === "HIGH" || d.stage === "QUALIFIED");
+  const recentMessages = messages.slice(0, 4);
 
-  // Quick Action Modal states (simulated)
-  const [quickModal, setQuickModal] = useState<string | null>(null);
+  // Quick Add Contact Modal
+  const [quickModalOpen, setQuickModalOpen] = useState(false);
   const [quickName, setQuickName] = useState("");
   const [quickPhone, setQuickPhone] = useState("");
+  const [quickService, setQuickService] = useState(activeTenant.services?.[0]?.name || "Consultation");
   const [quickSuccess, setQuickSuccess] = useState(false);
+
+  // Quick Tasks State
+  const [tasks, setTasks] = useState([
+    { id: "t-1", title: "Review intake form: Rahul Mehta", type: "form", urgent: true, done: false },
+    { id: "t-2", title: "Confirm WhatsApp booking: Priya Sharma (2:30 PM)", type: "booking", urgent: true, done: false },
+    { id: "t-3", title: "Follow-up callback: Vikram Malhotra", type: "call", urgent: false, done: false },
+    { id: "t-4", title: "Prepare clinical progress note: Anita Sen", type: "note", urgent: false, done: false },
+  ]);
+
+  const toggleTask = (id: string) => {
+    setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  };
 
   const handleQuickAddContact = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickName) return;
-    const [firstName, ...last] = quickName.split(" ");
+    if (!quickName.trim()) return;
+    const [firstName, ...last] = quickName.trim().split(" ");
     mockStore.createContact({
       id: `cnt-${Date.now()}`,
       tenantId: activeTenant.id,
       firstName,
       lastName: last.join(" ") || "",
-      fullName: quickName,
+      fullName: quickName.trim(),
       phone: quickPhone || "+91 98261 00000",
       email: `${firstName.toLowerCase()}@example.com`,
       status: "LEAD",
       assignedPractitionerId: activeTenant.team?.[0]?.id || "staff-1",
-      tags: ["Walk-in / Direct"],
+      tags: ["Direct Ingestion"],
       notesCount: 0,
       lastContactedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
@@ -71,30 +85,30 @@ export default function StaffDashboardPage() {
     setQuickSuccess(true);
     setTimeout(() => {
       setQuickSuccess(false);
-      setQuickModal(null);
+      setQuickModalOpen(false);
       setQuickName("");
       setQuickPhone("");
-    }, 1500);
+    }, 1200);
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      {/* Header Greeting & Quick Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#22252C] pb-6">
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Operational Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            Good morning, {practitioner.name}
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
+            Today&apos;s Practice Overview
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Welcome to <span className="text-white font-medium">{activeTenant.name}</span>. Here is your practice schedule and patient flow for today.
+          <p className="text-xs text-slate-500 mt-0.5">
+            {activeTenant.name} &bull; Operational schedule and patient triage
           </p>
         </div>
 
-        {/* Quick Action Bar */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Operational Actions */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setQuickModal("contact")}
-            className="bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+            onClick={() => setQuickModalOpen(true)}
+            className="inline-flex items-center gap-1.5 bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-medium px-3 py-1.5 rounded-md transition-colors shadow-sm"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>Add {vertical.terminology.contactSingular}</span>
@@ -102,106 +116,126 @@ export default function StaffDashboardPage() {
 
           <Link
             href="/app/appointments"
-            className="bg-[#1F232B] hover:bg-[#282C36] text-slate-200 text-xs font-semibold px-3.5 py-2 rounded-xl border border-[#2B2F3B] transition-colors flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-md border border-slate-200 transition-colors"
           >
-            <Calendar className="w-3.5 h-3.5 text-teal-400" />
-            <span>Book Appointment</span>
+            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+            <span>Schedule</span>
           </Link>
 
           <Link
             href="/app/crm"
-            className="bg-[#1F232B] hover:bg-[#282C36] text-slate-200 text-xs font-semibold px-3.5 py-2 rounded-xl border border-[#2B2F3B] transition-colors flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-md border border-slate-200 transition-colors"
           >
-            <PlusCircle className="w-3.5 h-3.5 text-sky-400" />
+            <Plus className="w-3.5 h-3.5 text-slate-500" />
             <span>New Lead</span>
           </Link>
         </div>
       </div>
 
-      {/* 4 Executive Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#16181D] border border-[#242833] rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-slate-400">New Enquiries</span>
-            <div className="p-2 rounded-xl bg-teal-950/60 border border-teal-800/60 text-teal-400">
-              <UserPlus className="w-4 h-4" />
-            </div>
+      {/* Above the Fold: 4 Operational KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Today's Appointments */}
+        <Link
+          href="/app/appointments"
+          className="bg-white border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors shadow-none"
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-medium text-slate-500">Today&apos;s Appointments</span>
+            <Calendar className="w-4 h-4 text-slate-400" />
           </div>
-          <p className="text-2xl font-bold tracking-tight text-white mb-1">
-            {deals.filter((d) => d.stage === "NEW_ENQUIRY").length || 3}
-          </p>
-          <p className="text-[11px] text-teal-400 font-medium">+2 via WhatsApp triage</p>
-        </div>
-
-        <div className="bg-[#16181D] border border-[#242833] rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-slate-400">Today&apos;s Sessions</span>
-            <div className="p-2 rounded-xl bg-sky-950/60 border border-sky-800/60 text-sky-400">
-              <Calendar className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold tracking-tight text-white mb-1">
+          <p className="text-2xl font-semibold text-slate-900 tabular-nums">
             {todayAppointments.length}
           </p>
-          <p className="text-[11px] text-slate-400">3 confirmed &bull; 1 completed</p>
-        </div>
+          <p className="text-xs text-slate-500 mt-1">
+            {todayAppointments.filter((a) => a.status === "CONFIRMED").length} confirmed &bull; {todayAppointments.filter((a) => a.status === "COMPLETED").length} completed
+          </p>
+        </Link>
 
-        <div className="bg-[#16181D] border border-[#242833] rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-slate-400">Pending Follow-Ups</span>
-            <div className="p-2 rounded-xl bg-amber-950/60 border border-amber-800/60 text-amber-400">
-              <Clock className="w-4 h-4" />
-            </div>
+        {/* New Enquiries */}
+        <Link
+          href="/app/crm"
+          className="bg-white border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors shadow-none"
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-medium text-slate-500">New Enquiries</span>
+            <UserPlus className="w-4 h-4 text-slate-400" />
           </div>
-          <p className="text-2xl font-bold tracking-tight text-white mb-1">4</p>
-          <p className="text-[11px] text-amber-400 font-medium">2 due before 2:00 PM</p>
-        </div>
+          <p className="text-2xl font-semibold text-slate-900 tabular-nums">
+            {newEnquiries.length || 3}
+          </p>
+          <p className="text-xs text-teal-700 font-medium mt-1">
+            Awaiting first contact
+          </p>
+        </Link>
 
-        <div className="bg-[#16181D] border border-[#242833] rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-slate-400">Conversion Rate</span>
-            <div className="p-2 rounded-xl bg-emerald-950/60 border border-emerald-800/60 text-emerald-400">
-              <TrendingUp className="w-4 h-4" />
-            </div>
+        {/* Pending Follow-Ups */}
+        <Link
+          href="/app/crm"
+          className="bg-white border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors shadow-none"
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-medium text-slate-500">Pending Follow-Ups</span>
+            <Clock className="w-4 h-4 text-slate-400" />
           </div>
-          <p className="text-2xl font-bold tracking-tight text-white mb-1">68.4%</p>
-          <p className="text-[11px] text-emerald-400 font-medium">+4.2% this month</p>
-        </div>
+          <p className="text-2xl font-semibold text-slate-900 tabular-nums">
+            {pendingFollowUps.length || 2}
+          </p>
+          <p className="text-xs text-amber-700 font-medium mt-1">
+            Due before clinic close
+          </p>
+        </Link>
+
+        {/* Unread Messages */}
+        <Link
+          href="/app/inbox"
+          className="bg-white border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors shadow-none"
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-medium text-slate-500">Unread Messages</span>
+            <MessageSquare className="w-4 h-4 text-slate-400" />
+          </div>
+          <p className="text-2xl font-semibold text-slate-900 tabular-nums">
+            {recentMessages.filter((m) => m.status !== "READ").length || 2}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            WhatsApp &amp; Portal triage
+          </p>
+        </Link>
       </div>
 
-      {/* Main Grid: Today's Schedule & Side Feeds */}
+      {/* Main Operational Panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Today's Schedule & Enquiries */}
+        {/* Left 2 Cols: Schedule & Recent Leads */}
         <div className="lg:col-span-2 space-y-6">
           {/* Today's Schedule */}
-          <div className="bg-[#16181D] border border-[#242833] rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-none">
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
               <div>
-                <h2 className="text-base font-semibold text-white">Today&apos;s Schedule</h2>
-                <p className="text-xs text-slate-400">Appointments scheduled across clinic rooms &amp; video</p>
+                <h2 className="text-base font-semibold text-slate-900">Today&apos;s Schedule</h2>
+                <p className="text-xs text-slate-500">Consultations across clinic rooms and tele-consults</p>
               </div>
               <Link
                 href="/app/appointments"
-                className="text-xs font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1"
+                className="text-xs font-medium text-teal-700 hover:text-teal-800 flex items-center gap-1"
               >
                 <span>Full Calendar</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="space-y-3">
+            <div className="divide-y divide-slate-100">
               {todayAppointments.map((apt) => (
                 <div
                   key={apt.id}
-                  className="p-4 rounded-xl bg-[#121417] border border-[#22252C] hover:border-[#2B2F3C] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 px-2 rounded-md transition-colors"
                 >
-                  <div className="flex items-start gap-3.5">
-                    <div className="px-2.5 py-2 rounded-lg bg-teal-950/80 border border-teal-800/60 text-center shrink-0">
-                      <span className="text-xs font-bold text-teal-300 font-mono block">
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 py-1 px-1.5 rounded bg-slate-50 border border-slate-200 text-center shrink-0">
+                      <span className="text-xs font-semibold text-slate-800 font-mono block">
                         {apt.startTime}
                       </span>
-                      <span className="text-[10px] text-teal-400 uppercase">
-                        {apt.durationMinutes}m
+                      <span className="text-[10px] text-slate-500 uppercase">
+                        {apt.durationMinutes} min
                       </span>
                     </div>
 
@@ -209,17 +243,17 @@ export default function StaffDashboardPage() {
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/app/contacts/${apt.contactId}`}
-                          className="font-bold text-white text-sm hover:text-teal-400 transition-colors"
+                          className="text-sm font-semibold text-slate-900 hover:text-teal-700 transition-colors"
                         >
                           {apt.contactName}
                         </Link>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                        <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
                           {apt.mode.replace("_", " ")}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-300 mt-0.5">{apt.serviceName}</p>
-                      <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
-                        <MapPin className="w-3 h-3 text-slate-400" />
+                      <p className="text-xs text-slate-600 mt-0.5">{apt.serviceName}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
                         <span>{apt.location}</span>
                       </p>
                     </div>
@@ -227,19 +261,19 @@ export default function StaffDashboardPage() {
 
                   <div className="flex items-center gap-2 self-end sm:self-center">
                     <span
-                      className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
+                      className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
                         apt.status === "CONFIRMED"
-                          ? "bg-emerald-950 text-emerald-400 border-emerald-800"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                           : apt.status === "COMPLETED"
-                          ? "bg-slate-800 text-slate-300 border-slate-700"
-                          : "bg-amber-950 text-amber-400 border-amber-800"
+                          ? "bg-slate-100 text-slate-600 border-slate-200"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
                       }`}
                     >
                       {apt.status}
                     </span>
                     <Link
                       href={`/app/contacts/${apt.contactId}`}
-                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#1C2028] hover:bg-[#252A36] text-slate-200 border border-[#2A2E3B] transition-colors"
+                      className="px-2.5 py-1 text-xs font-medium rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
                     >
                       Card
                     </Link>
@@ -249,228 +283,226 @@ export default function StaffDashboardPage() {
             </div>
           </div>
 
-          {/* Recent Enquiries & Deals */}
-          <div className="bg-[#16181D] border border-[#242833] rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
+          {/* Recent Leads */}
+          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-none">
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
               <div>
-                <h2 className="text-base font-semibold text-white">Recent Enquiries &amp; Triage</h2>
-                <p className="text-xs text-slate-400">Prospective care seekers entering the CRM pipeline</p>
+                <h2 className="text-base font-semibold text-slate-900">Recent Leads</h2>
+                <p className="text-xs text-slate-500">Inbound prospective patients requiring follow-up</p>
               </div>
               <Link
                 href="/app/crm"
-                className="text-xs font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1"
+                className="text-xs font-medium text-teal-700 hover:text-teal-800 flex items-center gap-1"
               >
-                <span>Pipeline View</span>
+                <span>Pipeline</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="space-y-2.5">
-              {newEnquiries.map((deal) => (
-                <div
-                  key={deal.id}
-                  className="p-3.5 rounded-xl bg-[#121417] border border-[#22252C] flex items-center justify-between text-xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-teal-400 text-xs">
-                      {deal.contactName.charAt(0)}
-                    </div>
-                    <div>
-                      <Link
-                        href={`/app/contacts/${deal.contactId}`}
-                        className="font-semibold text-white hover:text-teal-400 transition-colors"
-                      >
-                        {deal.contactName}
-                      </Link>
-                      <p className="text-[11px] text-slate-400">{deal.title}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                      {deal.source}
-                    </span>
-                    <span className="font-semibold text-white font-mono">
-                      ₹{deal.value.toLocaleString("en-IN")}
-                    </span>
-                    <Link
-                      href={`/app/contacts/${deal.contactId}`}
-                      className="p-1 rounded text-slate-400 hover:text-white"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500 font-medium">
+                    <th className="pb-2">Name</th>
+                    <th className="pb-2">Service</th>
+                    <th className="pb-2">Stage</th>
+                    <th className="pb-2">Source</th>
+                    <th className="pb-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {deals.slice(0, 4).map((deal) => (
+                    <tr key={deal.id} className="hover:bg-slate-50/70">
+                      <td className="py-2.5 font-medium text-slate-900">
+                        <Link
+                          href={`/app/contacts/${deal.contactId}`}
+                          className="hover:text-teal-700"
+                        >
+                          {deal.contactName}
+                        </Link>
+                      </td>
+                      <td className="py-2.5 text-slate-600">{deal.title}</td>
+                      <td className="py-2.5">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                          {deal.stage.replace("_", " ")}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-slate-500 uppercase font-mono text-[10px]">
+                        {deal.source}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        <Link
+                          href="/app/crm"
+                          className="text-teal-700 hover:text-teal-800 font-medium"
+                        >
+                          Triage &rarr;
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
-        {/* Right Col: AI Handoffs, Lead Sources & Tasks */}
+        {/* Right Col: Attention Items & Recent Messages */}
         <div className="space-y-6">
-          {/* AI Receptionist Handoffs */}
-          <div className="bg-[#16181D] border border-amber-800/40 rounded-2xl p-6 relative overflow-hidden">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <h3 className="text-sm font-semibold text-white">AI Human Escalations</h3>
+          {/* Tasks Requiring Attention */}
+          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-none">
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Action Required</h2>
+                <p className="text-xs text-slate-500">Operational tasks and intake reviews</p>
               </div>
-              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800">
-                Action Required
+              <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800">
+                {tasks.filter((t) => !t.done).length}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mb-4">
-              Conversations where Maya requested human practitioner intervention.
-            </p>
 
-            <div className="space-y-2.5">
-              {aiHandoffs.map((deal) => (
+            <div className="space-y-2">
+              {tasks.map((task) => (
                 <div
-                  key={deal.id}
-                  className="p-3 rounded-xl bg-[#121417] border border-amber-900/30 text-xs space-y-1.5"
+                  key={task.id}
+                  onClick={() => toggleTask(task.id)}
+                  className={`p-2.5 rounded-md border text-xs cursor-pointer flex items-start gap-2.5 transition-colors ${
+                    task.done
+                      ? "bg-slate-50 border-slate-200 text-slate-400 line-through"
+                      : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
+                  }`}
                 >
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-white">{deal.contactName}</span>
-                    <span className="text-[10px] text-amber-400 font-mono">WhatsApp</span>
+                  <div
+                    className={`w-4 h-4 rounded border mt-0.5 flex items-center justify-center shrink-0 ${
+                      task.done ? "bg-teal-600 border-teal-600 text-white" : "border-slate-300 bg-white"
+                    }`}
+                  >
+                    {task.done && <Check className="w-3 h-3" />}
                   </div>
-                  <p className="text-slate-300 text-[11px] line-clamp-2">
-                    {deal.notes || "Client inquiring about medication compatibility. Clinical triage requested."}
-                  </p>
-                  <div className="pt-2 flex justify-between items-center text-[11px]">
-                    <span className="text-slate-500">{deal.contactPhone}</span>
-                    <Link
-                      href="/app/inbox"
-                      className="text-teal-400 font-semibold hover:text-teal-300 flex items-center gap-1"
-                    >
-                      <span>Take Over</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </Link>
-                  </div>
+                  <span className="leading-tight flex-1">{task.title}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Lead Sources Breakdown */}
-          <div className="bg-[#16181D] border border-[#242833] rounded-2xl p-6">
-            <h3 className="text-sm font-semibold text-white mb-1">Lead Sources</h3>
-            <p className="text-xs text-slate-400 mb-4">Patient acquisition channels this month</p>
-
-            <div className="space-y-3 text-xs">
+          {/* Recent Messages */}
+          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-none">
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
               <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-slate-300">Website Direct</span>
-                  <span className="text-teal-400 font-mono">40%</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#0D9488] rounded-full w-[40%]" />
-                </div>
+                <h2 className="text-base font-semibold text-slate-900">Recent Messages</h2>
+                <p className="text-xs text-slate-500">Patient queries from WhatsApp &amp; Portal</p>
               </div>
-
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-slate-300">Google Business Map</span>
-                  <span className="text-sky-400 font-mono">30%</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#0284C7] rounded-full w-[30%]" />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-slate-300">Referrals &amp; Word of Mouth</span>
-                  <span className="text-emerald-400 font-mono">20%</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full w-[20%]" />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-slate-300">WhatsApp Inbound</span>
-                  <span className="text-indigo-400 font-mono">10%</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 rounded-full w-[10%]" />
-                </div>
-              </div>
+              <Link
+                href="/app/inbox"
+                className="text-xs font-medium text-teal-700 hover:text-teal-800 flex items-center gap-1"
+              >
+                <span>Inbox</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
-          </div>
 
-          {/* Follow-Up Tasks */}
-          <div className="bg-[#16181D] border border-[#242833] rounded-2xl p-6">
-            <h3 className="text-sm font-semibold text-white mb-3">Today&apos;s Follow-Up Tasks</h3>
-            <div className="space-y-2 text-xs">
-              <label className="flex items-center gap-2.5 p-2 rounded-lg bg-[#121417] text-slate-300 cursor-pointer">
-                <input type="checkbox" className="rounded border-slate-700 text-teal-600 focus:ring-0" />
-                <span>Review Priya Sharma thought log</span>
-              </label>
-              <label className="flex items-center gap-2.5 p-2 rounded-lg bg-[#121417] text-slate-300 cursor-pointer">
-                <input type="checkbox" className="rounded border-slate-700 text-teal-600 focus:ring-0" />
-                <span>Confirm Wednesday couples therapy slot</span>
-              </label>
-              <label className="flex items-center gap-2.5 p-2 rounded-lg bg-[#121417] text-slate-300 cursor-pointer">
-                <input type="checkbox" className="rounded border-slate-700 text-teal-600 focus:ring-0" />
-                <span>Upload updated clinical intake PDF</span>
-              </label>
+            <div className="divide-y divide-slate-100">
+              {recentMessages.map((msg) => (
+                <Link
+                  key={msg.id}
+                  href="/app/inbox"
+                  className="py-2.5 flex items-start justify-between gap-2 hover:bg-slate-50 px-1 rounded transition-colors group block"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-slate-900 truncate">
+                        {msg.senderName}
+                      </span>
+                      <span className="text-[9px] font-medium uppercase px-1 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                        {msg.channel}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                      {msg.content}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-slate-400 shrink-0 font-mono">
+                    {(msg.timestamp || "").slice(11, 16)}
+                  </span>
+                </Link>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
       {/* Quick Add Contact Modal */}
-      {quickModal === "contact" && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#16181D] border border-[#272A34] rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in zoom-in-95">
-            <h3 className="text-base font-bold text-white mb-1">
-              Add New {vertical.terminology.contactSingular}
+      {quickModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-lg p-6 max-w-md w-full shadow-lg">
+            <h3 className="text-base font-semibold text-slate-900 mb-1">
+              Add {vertical.terminology.contactSingular}
             </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Quickly create a patient or client record directly in the practice database.
+            <p className="text-xs text-slate-500 mb-4">
+              Quickly create a patient record and initiate clinical onboarding.
             </p>
 
             {quickSuccess ? (
-              <div className="py-6 text-center text-teal-400 text-xs font-semibold flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-5 h-5" />
-                <span>Record Created Successfully!</span>
+              <div className="py-6 text-center text-emerald-700 text-xs font-medium flex flex-col items-center gap-2">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                <span>Patient record created successfully!</span>
               </div>
             ) : (
-              <form onSubmit={handleQuickAddContact} className="space-y-3 text-xs">
+              <form onSubmit={handleQuickAddContact} className="space-y-3">
                 <div>
-                  <label className="text-slate-300 block mb-1">Full Name *</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Full Name
+                  </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Anand Mehra"
+                    placeholder="e.g. Dr. Rohan Verma"
                     value={quickName}
                     onChange={(e) => setQuickName(e.target.value)}
-                    className="w-full bg-[#111315] border border-[#272A34] rounded-xl px-3 py-2 text-white"
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                   />
                 </div>
+
                 <div>
-                  <label className="text-slate-300 block mb-1">Phone Number *</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Phone Number
+                  </label>
                   <input
-                    type="text"
-                    required
-                    placeholder="+91 98261 00000"
+                    type="tel"
+                    placeholder="+91 98000 00000"
                     value={quickPhone}
                     onChange={(e) => setQuickPhone(e.target.value)}
-                    className="w-full bg-[#111315] border border-[#272A34] rounded-xl px-3 py-2 text-white"
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-3 border-t border-[#242833]">
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Initial Service Interest
+                  </label>
+                  <select
+                    value={quickService}
+                    onChange={(e) => setQuickService(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
+                  >
+                    {activeTenant.services?.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name} (&#8377;{s.price})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setQuickModal(null)}
-                    className="px-3 py-1.5 rounded-lg border border-[#272A34] text-slate-400 hover:text-white"
+                    onClick={() => setQuickModalOpen(false)}
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-md border border-slate-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="bg-[#0D9488] hover:bg-[#0F766E] text-white font-semibold px-4 py-1.5 rounded-lg"
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-[#0D9488] hover:bg-[#0F766E] rounded-md transition-colors"
                   >
                     Save Record
                   </button>

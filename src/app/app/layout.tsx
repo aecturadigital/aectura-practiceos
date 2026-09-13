@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
   Calendar,
-  FileText,
+  Layers,
   Inbox,
   FileCheck,
   Globe,
@@ -19,15 +19,14 @@ import {
   Settings,
   Sparkles,
   BookOpen,
-  ShieldAlert,
+  ChevronDown,
+  ChevronRight,
   Menu,
   X,
   ExternalLink,
   Lock,
   Search,
   Building2,
-  Stethoscope,
-  Radio,
 } from "lucide-react";
 import { useTenant } from "@/context/tenant-context";
 import { TenantSwitcher } from "@/components/ui/tenant-switcher";
@@ -49,151 +48,112 @@ export default function StaffAppLayout({ children }: { children: React.ReactNode
     avatarUrl: "",
   };
 
-  const navGroups: Array<{
-    title: string;
-    items: Array<{
-      label: string;
-      href: string;
-      icon: any;
-      feature?: FeatureKey;
-      badge?: string;
-    }>;
+  // Primary Navigation (Clean nouns)
+  const primaryNavItems: Array<{
+    label: string;
+    href: string;
+    icon: any;
+    feature?: FeatureKey;
+    badge?: string;
   }> = [
+    { label: "Home", href: "/app", icon: LayoutDashboard },
     {
-      title: "Clinic Operations",
-      items: [
-        { label: "Dashboard", href: "/app", icon: LayoutDashboard },
-        {
-          label: vertical.terminology.contactPlural,
-          href: "/app/contacts",
-          icon: Users,
-          feature: "contacts",
-        },
-        {
-          label: "CRM Pipeline",
-          href: "/app/crm",
-          icon: FileText,
-          feature: "crm",
-        },
-        {
-          label: "Appointments",
-          href: "/app/appointments",
-          icon: Calendar,
-          feature: "booking",
-        },
-        {
-          label: "Unified Inbox",
-          href: "/app/inbox",
-          icon: Inbox,
-          feature: "whatsapp",
-          badge: "2",
-        },
-        {
-          label: "Forms & Intakes",
-          href: "/app/forms",
-          icon: FileCheck,
-          feature: "forms",
-        },
-        {
-          label: "Website Builder",
-          href: "/app/website",
-          icon: Globe,
-          feature: "website",
-        },
-        {
-          label: "Reviews",
-          href: "/app/reviews",
-          icon: Star,
-          feature: "reviews",
-        },
-      ],
+      label: vertical.terminology.contactPlural,
+      href: "/app/contacts",
+      icon: Users,
+      feature: "contacts",
     },
     {
-      title: "Practice Intelligence",
-      items: [
-        {
-          label: "AI Receptionist",
-          href: "/app/ai",
-          icon: Sparkles,
-          feature: "ai",
-          badge: "Maya",
-        },
-        {
-          label: "Knowledge Base",
-          href: "/app/knowledge",
-          icon: BookOpen,
-          feature: "knowledge_base",
-        },
-        {
-          label: "Automations",
-          href: "/app/automations",
-          icon: Zap,
-          feature: "automations",
-        },
-        {
-          label: "Analytics",
-          href: "/app/analytics",
-          icon: BarChart3,
-          feature: "analytics",
-        },
-      ],
+      label: "Calendar",
+      href: "/app/appointments",
+      icon: Calendar,
+      feature: "booking",
     },
     {
-      title: "Management",
-      items: [
-        { label: "Team Roster", href: "/app/team", icon: UserCheck },
-        { label: "Media & Files", href: "/app/files", icon: HardDrive },
-        { label: "Integrations", href: "/app/integrations", icon: Radio },
-        { label: "Practice Settings", href: "/app/settings", icon: Settings },
-        { label: "Audit Log", href: "/app/audit", icon: ShieldAlert },
-      ],
+      label: "Leads",
+      href: "/app/crm",
+      icon: Layers,
+      feature: "crm",
+    },
+    {
+      label: "Inbox",
+      href: "/app/inbox",
+      icon: Inbox,
+      feature: "whatsapp",
+      badge: "2",
     },
   ];
 
+  // Secondary Tools under "More"
+  const moreNavItems: Array<{
+    label: string;
+    href: string;
+    icon: any;
+    feature?: FeatureKey;
+  }> = [
+    { label: "Forms", href: "/app/forms", icon: FileCheck, feature: "forms" },
+    { label: "Website", href: "/app/website", icon: Globe, feature: "website" },
+    { label: "Reviews", href: "/app/reviews", icon: Star, feature: "reviews" },
+    { label: "AI Receptionist", href: "/app/ai", icon: Sparkles, feature: "ai" },
+    { label: "Knowledge", href: "/app/knowledge", icon: BookOpen, feature: "knowledge_base" },
+    { label: "Automations", href: "/app/automations", icon: Zap, feature: "automations" },
+    { label: "Reports", href: "/app/analytics", icon: BarChart3, feature: "analytics" },
+    { label: "Team", href: "/app/team", icon: UserCheck },
+    { label: "Files", href: "/app/files", icon: HardDrive },
+  ];
+
+  // Auto-expand "More" if the active route is inside it
+  const isMoreActive = moreNavItems.some(
+    (item) => pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
+  );
+  const [moreExpanded, setMoreExpanded] = useState(isMoreActive);
+
+  useEffect(() => {
+    if (isMoreActive) setMoreExpanded(true);
+  }, [isMoreActive]);
+
   return (
-    <div className="min-h-screen bg-[#111315] text-slate-100 flex flex-col">
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 h-16 border-b border-[#22252C] bg-[#16181D]/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col antialiased">
+      {/* Top Application Header */}
+      <header className="sticky top-0 z-40 h-14 border-b border-slate-200 bg-white/95 backdrop-blur-sm px-4 sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="lg:hidden p-2 rounded-lg border border-[#272A34] text-slate-400 hover:text-white"
+            className="lg:hidden p-1.5 rounded-md border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+            aria-label="Toggle navigation"
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
 
-          {/* Practice Branding Lockup */}
+          {/* Clinic Branding Lockup */}
           <Link href="/app" className="flex items-center gap-2.5">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-white text-sm shadow-sm shrink-0"
+              className="w-7 h-7 rounded-md flex items-center justify-center font-semibold text-white text-xs shrink-0"
               style={{ backgroundColor: activeTenant.branding.primaryColor || "#0D9488" }}
             >
               {activeTenant.name.charAt(0)}
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-sm text-white truncate max-w-[140px] sm:max-w-[200px]">
+                <span className="font-semibold text-sm text-slate-900 truncate max-w-[140px] sm:max-w-[200px]">
                   {activeTenant.name}
                 </span>
-                <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800 font-mono capitalize">
+                <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-medium capitalize">
                   {activeTenant.verticalId}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-mono">
-                {plan.name} Tier
-              </p>
             </div>
           </Link>
 
-          <div className="hidden sm:block h-5 w-px bg-[#272A34]" />
+          <div className="hidden sm:block h-4 w-px bg-slate-200" />
 
-          {/* Demo Mode Badge */}
+          {/* Demo Environment Badge */}
           <div className="hidden sm:block">
             <DemoEnvironmentBadge />
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {/* Tenant Switcher dropdown */}
           <div className="hidden md:block">
             <TenantSwitcher />
@@ -203,24 +163,26 @@ export default function StaffAppLayout({ children }: { children: React.ReactNode
           <Link
             href={`/preview/${activeTenant.slug}`}
             target="_blank"
-            className="hidden sm:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-teal-950/50 hover:bg-teal-900/50 text-teal-300 border border-teal-800/50 transition-colors"
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors"
+            title="Open Public Practice Website"
           >
-            <Globe className="w-3.5 h-3.5" />
+            <Globe className="w-3.5 h-3.5 text-slate-500" />
             <span>Public Site</span>
-            <ExternalLink className="w-3 h-3" />
+            <ExternalLink className="w-3 h-3 text-slate-400" />
           </Link>
 
-          {/* Client Portal Link */}
+          {/* Patient Portal Link */}
           <Link
             href="/portal"
             target="_blank"
-            className="hidden xl:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1F232B] hover:bg-[#282C36] text-slate-200 border border-[#2B2F3B] transition-colors"
+            className="hidden xl:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors"
+            title="Open Patient Portal View"
           >
-            <Users className="w-3.5 h-3.5 text-teal-400" />
+            <Users className="w-3.5 h-3.5 text-teal-600" />
             <span>Patient Portal</span>
           </Link>
 
-          {/* Search Trigger */}
+          {/* Global Search Shortcut Trigger */}
           <button
             onClick={() => {
               const event = new KeyboardEvent("keydown", {
@@ -230,20 +192,21 @@ export default function StaffAppLayout({ children }: { children: React.ReactNode
               });
               window.dispatchEvent(event);
             }}
-            className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[#272A34] bg-[#121417] text-slate-400 text-xs hover:border-slate-600 transition-colors"
+            className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-500 text-xs hover:border-slate-300 transition-colors"
           >
-            <Search className="w-3.5 h-3.5" />
-            <kbd className="text-[10px] bg-[#1E2127] border border-[#2E333D] px-1.5 py-0.5 rounded text-slate-400">
+            <Search className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-slate-500">Search</span>
+            <kbd className="text-[10px] bg-white border border-slate-200 px-1 py-0.5 rounded text-slate-400 font-mono">
               ⌘K
             </kbd>
           </button>
 
-          {/* Notifications */}
+          {/* Notification Center */}
           <NotificationDrawer />
 
-          {/* User Profile Pill */}
-          <div className="flex items-center gap-2 pl-2 border-l border-[#272A34]">
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-teal-400 text-xs overflow-hidden">
+          {/* Staff User Profile */}
+          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+            <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-medium text-teal-700 text-xs overflow-hidden">
               {primaryPractitioner.avatarUrl ? (
                 <img
                   src={primaryPractitioner.avatarUrl}
@@ -255,10 +218,10 @@ export default function StaffAppLayout({ children }: { children: React.ReactNode
               )}
             </div>
             <div className="hidden lg:block text-left">
-              <p className="text-xs font-semibold text-white leading-tight">
+              <p className="text-xs font-medium text-slate-900 leading-tight">
                 {primaryPractitioner.name}
               </p>
-              <p className="text-[10px] text-teal-400 leading-none truncate max-w-[120px]">
+              <p className="text-[11px] text-slate-500 leading-none truncate max-w-[120px]">
                 {primaryPractitioner.title}
               </p>
             </div>
@@ -266,22 +229,82 @@ export default function StaffAppLayout({ children }: { children: React.ReactNode
         </div>
       </header>
 
-      {/* Main App Container */}
+      {/* Main Container */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Staff App Sidebar */}
+        {/* Desktop & Mobile Staff Sidebar */}
         <aside
           className={`${
-            mobileOpen ? "block" : "hidden"
-          } lg:block w-64 shrink-0 border-r border-[#22252C] bg-[#14161A] p-4 flex flex-col justify-between overflow-y-auto`}
+            mobileOpen ? "block fixed inset-y-14 left-0 z-30" : "hidden"
+          } lg:block w-[232px] shrink-0 border-r border-slate-200 bg-white p-3 flex flex-col justify-between overflow-y-auto`}
         >
-          <div className="space-y-6">
-            {navGroups.map((group, gIdx) => (
-              <div key={gIdx}>
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 mb-2">
-                  {group.title}
-                </p>
-                <nav className="space-y-0.5">
-                  {group.items.map((item) => {
+          <div className="space-y-4">
+            {/* Primary Navigation */}
+            <div>
+              <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider px-2.5 mb-1.5">
+                Practice
+              </p>
+              <nav className="space-y-0.5">
+                {primaryNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  const isLocked = item.feature && !hasAccess(item.feature);
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        isActive
+                          ? "bg-teal-50 text-teal-800 font-semibold"
+                          : isLocked
+                          ? "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon
+                          className={`w-4 h-4 ${
+                            isActive
+                              ? "text-teal-600"
+                              : isLocked
+                              ? "text-slate-300"
+                              : "text-slate-400"
+                          }`}
+                        />
+                        <span>{item.label}</span>
+                      </div>
+
+                      {isLocked ? (
+                        <Lock className="w-3 h-3 text-slate-400" />
+                      ) : item.badge ? (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700">
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* "More" Collapsible Tools */}
+            <div>
+              <button
+                onClick={() => setMoreExpanded(!moreExpanded)}
+                className="w-full flex items-center justify-between px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:text-slate-700 uppercase tracking-wider transition-colors rounded"
+              >
+                <span>More Tools</span>
+                {moreExpanded ? (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5" />
+                )}
+              </button>
+
+              {moreExpanded && (
+                <nav className="mt-1 space-y-0.5">
+                  {moreNavItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = pathname === item.href;
                     const isLocked = item.feature && !hasAccess(item.feature);
@@ -291,59 +314,68 @@ export default function StaffAppLayout({ children }: { children: React.ReactNode
                         key={item.href}
                         href={item.href}
                         onClick={() => setMobileOpen(false)}
-                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                           isActive
-                            ? "bg-teal-950/60 text-teal-300 border border-teal-800/50 shadow-sm"
+                            ? "bg-teal-50 text-teal-800 font-semibold"
                             : isLocked
-                            ? "text-slate-500 hover:text-slate-400 hover:bg-[#181A20]"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-[#1B1E24]"
+                            ? "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                         }`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5">
                           <Icon
                             className={`w-4 h-4 ${
                               isActive
-                                ? "text-teal-400"
+                                ? "text-teal-600"
                                 : isLocked
-                                ? "text-slate-600"
+                                ? "text-slate-300"
                                 : "text-slate-400"
                             }`}
                           />
                           <span>{item.label}</span>
                         </div>
 
-                        {isLocked ? (
-                          <Lock className="w-3 h-3 text-amber-500/80" />
-                        ) : item.badge ? (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-teal-950 text-teal-400 border border-teal-800">
-                            {item.badge}
-                          </span>
-                        ) : null}
+                        {isLocked && <Lock className="w-3 h-3 text-slate-400" />}
                       </Link>
                     );
                   })}
                 </nav>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
 
-          {/* Bottom Switcher and Platform Link */}
-          <div className="pt-4 border-t border-[#22252C] space-y-3">
+          {/* Bottom Settings & Platform */}
+          <div className="pt-3 border-t border-slate-200 space-y-1">
+            <Link
+              href="/app/settings"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                pathname.startsWith("/app/settings")
+                  ? "bg-teal-50 text-teal-800 font-semibold"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Settings className="w-4 h-4 text-slate-400" />
+                <span>Settings</span>
+              </div>
+            </Link>
+
             <Link
               href="/platform"
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold bg-[#1C1F26] hover:bg-[#252933] text-teal-400 border border-[#2B2F3C] transition-colors"
+              className="flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
             >
-              <div className="flex items-center gap-2">
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Super Admin OS</span>
+              <div className="flex items-center gap-2.5">
+                <Building2 className="w-4 h-4 text-slate-400" />
+                <span>Platform OS</span>
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">/platform</span>
+              <span className="text-[10px] text-slate-400 font-mono">Admin</span>
             </Link>
           </div>
         </aside>
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto bg-[#111315] p-4 sm:p-8">
+        {/* Content Area with Standard 24–32px Padding & Warm Neutral Canvas */}
+        <main className="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

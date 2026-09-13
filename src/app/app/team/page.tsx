@@ -6,12 +6,10 @@ import {
   Plus,
   Mail,
   Phone,
-  ShieldCheck,
   CheckCircle2,
-  Award,
-  Stethoscope,
   Trash2,
   UserCheck,
+  X,
 } from "lucide-react";
 import { useTenant } from "@/context/tenant-context";
 import { mockStore } from "@/lib/mock/store";
@@ -28,7 +26,6 @@ export default function StaffTeamPage() {
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<StaffRole>("PRACTITIONER");
   const [title, setTitle] = useState("");
-  const [qualifications, setQualifications] = useState("");
   const [specialization, setSpecialization] = useState("");
 
   const handleAddMember = (e: React.FormEvent) => {
@@ -43,9 +40,9 @@ export default function StaffTeamPage() {
       phone: phone.trim() || "+91 98765 00000",
       role,
       title: title.trim() || "Consultant",
-      qualifications: qualifications.trim() || "M.Phil / Master Degree",
+      qualifications: "Certified Clinician",
       specialization: specialization.trim() || "General Practice",
-      bio: "Dedicated healthcare professional providing evidence-based patient support.",
+      bio: "Healthcare professional.",
       avatarUrl: "",
       isActive: true,
     };
@@ -59,223 +56,205 @@ export default function StaffTeamPage() {
     setEmail("");
     setPhone("");
     setTitle("");
-    setQualifications("");
     setSpecialization("");
   };
 
-  const handleToggleStatus = (id: string) => {
-    const updatedTeam = team.map((m) =>
-      m.id === id ? { ...m, isActive: !m.isActive } : m
+  const handleToggleStatus = (staffId: string) => {
+    const updated = team.map((m) =>
+      m.id === staffId ? { ...m, isActive: !m.isActive } : m
     );
-    setTeam(updatedTeam);
-    mockStore.updateTenant(activeTenant.id, { team: updatedTeam });
+    setTeam(updated);
+    mockStore.updateTenant(activeTenant.id, { team: updated });
   };
 
   return (
-    <div className="space-y-6 p-6 sm:p-8 max-w-7xl mx-auto">
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#14161B] border border-[#232630] rounded-3xl p-6 sm:p-8">
+    <div className="max-w-7xl mx-auto space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 text-xs font-mono text-teal-400 mb-1">
-            <Users className="w-3.5 h-3.5" />
-            <span>Staff Roster &amp; Access Control</span>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">Team</h1>
+            <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+              {team.length} Members
+            </span>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Clinical Team &amp; Staff</h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Manage practitioners, consultation capacities, role-based access permissions, and public directory bios.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Practitioners, front-desk receptionists, and role-based permissions
           </p>
         </div>
 
         <button
           onClick={() => setIsInviteOpen(true)}
-          className="bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-1.5 self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-medium px-3 py-1.5 rounded-md transition-colors shadow-sm self-start sm:self-auto"
         >
-          <Plus className="w-4 h-4" />
-          <span>Invite Team Member</span>
+          <Plus className="w-3.5 h-3.5" />
+          <span>Add Member</span>
         </button>
       </div>
 
-      {/* Team Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Team Roster Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {team.map((member) => (
           <div
             key={member.id}
-            className="bg-[#14161B] border border-[#232630] hover:border-slate-700 transition-all rounded-3xl p-6 flex flex-col justify-between space-y-5"
+            className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between space-y-3 shadow-none"
           >
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-start justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-teal-950 border border-teal-800 text-teal-300 font-bold text-base flex items-center justify-center">
-                  {member.name.charAt(0)}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs">
+                    {member.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-xs text-slate-900 leading-tight">
+                      {member.name}
+                    </h3>
+                    <p className="text-[11px] text-slate-500">{member.title}</p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-[9px] font-mono font-semibold px-2 py-0.5 rounded ${
-                      member.role === "OWNER"
-                        ? "bg-purple-950 text-purple-300 border border-purple-800"
-                        : member.role === "PRACTITIONER"
-                        ? "bg-teal-950 text-teal-300 border border-teal-800"
-                        : "bg-slate-800 text-slate-300 border border-slate-700"
-                    }`}
-                  >
-                    {member.role.replace("_", " ")}
-                  </span>
-
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      member.isActive ? "bg-emerald-400" : "bg-slate-600"
-                    }`}
-                  />
-                </div>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                    member.isActive
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-slate-100 text-slate-500 border-slate-200"
+                  }`}
+                >
+                  {member.role}
+                </span>
               </div>
 
-              <div>
-                <h3 className="text-base font-bold text-white">{member.name}</h3>
-                <p className="text-xs text-teal-400 font-medium">{member.title}</p>
-                <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
-                  <Award className="w-3 h-3 text-slate-500 shrink-0" />
-                  <span>{member.qualifications}</span>
-                </p>
-              </div>
-
-              <div className="space-y-1 text-xs text-slate-400 pt-1 border-t border-[#20232C]">
-                <div className="flex items-center gap-2 truncate">
-                  <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <div className="space-y-1 text-xs text-slate-600 font-mono">
+                <div className="flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-slate-400 font-sans" />
                   <span className="truncate">{member.email}</span>
                 </div>
-                <div className="flex items-center gap-2 font-mono">
-                  <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <div className="flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-slate-400" />
                   <span>{member.phone}</span>
                 </div>
               </div>
+
+              {member.specialization && (
+                <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
+                  <strong className="text-slate-700">Specialization:</strong> {member.specialization}
+                </div>
+              )}
             </div>
 
-            <div className="pt-3 border-t border-[#20232C] flex items-center justify-between text-xs">
-              <span className="text-[11px] text-slate-500 font-mono">
-                {member.specialization}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-400 text-[11px]">
+                {member.isActive ? "Active on Roster" : "Inactive"}
               </span>
-
               <button
                 onClick={() => handleToggleStatus(member.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${
-                  member.isActive
-                    ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
-                    : "bg-emerald-950 text-emerald-300 border-emerald-800"
-                }`}
+                className="text-slate-600 hover:text-slate-900 text-xs font-medium"
               >
-                {member.isActive ? "Suspend" : "Activate"}
+                {member.isActive ? "Deactivate" : "Activate"}
               </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Invite Modal */}
+      {/* Add Staff Modal */}
       {isInviteOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#16181F] border border-[#2A2E3B] rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-white">Invite Team Member</h3>
-                <p className="text-xs text-slate-400">
-                  Grant staff access to {activeTenant.name}.
-                </p>
-              </div>
-              <button
-                onClick={() => setIsInviteOpen(false)}
-                className="text-slate-400 hover:text-white text-lg font-bold"
-              >
-                &times;
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-lg p-6 max-w-md w-full shadow-lg">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <h3 className="text-base font-semibold text-slate-900">Add Team Member</h3>
+              <button onClick={() => setIsInviteOpen(false)} className="p-1 rounded text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleAddMember} className="space-y-4 text-xs">
+            <form onSubmit={handleAddMember} className="space-y-3">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Full Name</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Full Name</label>
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Dr. Sneha Rao"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Dr. Rajesh Mishra"
-                  className="w-full bg-[#101216] border border-[#2B2F3D] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-teal-500"
+                  className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Email</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Email</label>
                   <input
                     type="email"
                     required
+                    placeholder="sneha@clinic.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="rajesh@clinic.in"
-                    className="w-full bg-[#101216] border border-[#2B2F3D] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-teal-500"
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Phone</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Phone</label>
                   <input
-                    type="text"
+                    type="tel"
+                    placeholder="+91 98000 00000"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+91 98261 00000"
-                    className="w-full bg-[#101216] border border-[#2B2F3D] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-teal-500"
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">System Role</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Role</label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as StaffRole)}
-                    className="w-full bg-[#101216] border border-[#2B2F3D] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-teal-500"
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                   >
                     <option value="PRACTITIONER">Practitioner</option>
-                    <option value="ADMIN">Practice Admin</option>
                     <option value="RECEPTIONIST">Receptionist</option>
-                    <option value="BILLING">Billing Coordinator</option>
+                    <option value="ADMIN">Practice Admin</option>
+                    <option value="BILLING">Billing Officer</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Title / Designation</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Clinical Title</label>
                   <input
                     type="text"
+                    placeholder="e.g. Clinical Psychologist"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Senior Psychologist"
-                    className="w-full bg-[#101216] border border-[#2B2F3D] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-teal-500"
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Qualifications &amp; Degrees</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Specialization</label>
                 <input
                   type="text"
-                  value={qualifications}
-                  onChange={(e) => setQualifications(e.target.value)}
-                  placeholder="M.Phil Clinical Psychology (NIMHANS), RCI Reg."
-                  className="w-full bg-[#101216] border border-[#2B2F3D] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-teal-500"
+                  placeholder="e.g. Cognitive Behavioral Therapy, Trauma"
+                  value={specialization}
+                  onChange={(e) => setSpecialization(e.target.value)}
+                  className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsInviteOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-300 hover:bg-[#20232C] font-medium"
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-md border border-slate-200"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold shadow-md"
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-[#0D9488] hover:bg-[#0F766E] rounded-md transition-colors"
                 >
-                  Send Invite &amp; Add
+                  Add Member
                 </button>
               </div>
             </form>

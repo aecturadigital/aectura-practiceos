@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Search,
   Phone,
+  Mail,
   Send,
   Sparkles,
   Bot,
@@ -18,7 +19,6 @@ import {
   RefreshCw,
   Clock,
   ShieldCheck,
-  AlertTriangle,
   Zap,
 } from "lucide-react";
 import { useTenant } from "@/context/tenant-context";
@@ -62,7 +62,6 @@ export default function StaffInboxPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Selected contact details for 3rd pane
   const contact: Contact | undefined = activeConv
     ? mockStore.getContact(activeConv.contactId)
     : undefined;
@@ -93,139 +92,138 @@ export default function StaffInboxPage() {
     mockStore.toggleConversationAi(activeConv.id, !activeConv.aiEnabled);
   };
 
-  // Filter conversations
   const filteredConversations = conversations.filter((c) => {
     const matchChannel = selectedChannel === "ALL" || c.channel === selectedChannel;
     const matchSearch =
       c.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.lastMessagePreview.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.contactPhone.includes(searchQuery);
+      (c.lastMessagePreview || "").toLowerCase().includes(searchQuery.toLowerCase());
     return matchChannel && matchSearch;
   });
 
-  return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] overflow-hidden">
-      {/* Top Controls Bar */}
-      <div className="p-4 border-b border-[#232630] bg-[#14161B] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-teal-950 border border-teal-800 text-teal-400 flex items-center justify-center">
-            <MessageSquare className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <span>Omnichannel Care Inbox</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1F232B] text-teal-400 border border-[#2B303D]">
-                {conversations.length} Active Conversations
-              </span>
-            </h1>
-            <p className="text-[11px] text-slate-400">
-              Unified real-time conversations across WhatsApp, Patient Portal, and SMS.
-            </p>
-          </div>
-        </div>
+  const getChannelBadge = (channel: string) => {
+    switch (channel) {
+      case "WHATSAPP":
+        return (
+          <span className="text-[10px] font-medium text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded font-mono">
+            WhatsApp
+          </span>
+        );
+      case "PORTAL":
+        return (
+          <span className="text-[10px] font-medium text-teal-800 bg-teal-50 border border-teal-200/80 px-1.5 py-0.2 rounded font-mono">
+            Portal
+          </span>
+        );
+      case "EMAIL":
+        return (
+          <span className="text-[10px] font-medium text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded font-mono">
+            Email
+          </span>
+        );
+      default:
+        return (
+          <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded font-mono">
+            {channel}
+          </span>
+        );
+    }
+  };
 
-        {/* Channel Filter Pills */}
-        <div className="flex items-center gap-1.5 bg-[#101216] p-1 rounded-xl border border-[#232630] text-xs">
-          {["ALL", "WHATSAPP", "PORTAL", "SMS"].map((ch) => (
-            <button
-              key={ch}
-              onClick={() => setSelectedChannel(ch)}
-              className={`px-3 py-1 rounded-lg font-medium text-[11px] transition-all ${
-                selectedChannel === ch
-                  ? "bg-teal-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {ch}
-            </button>
-          ))}
+  return (
+    <div className="h-[calc(100vh-100px)] flex flex-col space-y-3">
+      {/* Top Header */}
+      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Inbox</h1>
+            <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+              {conversations.length} Active Conversations
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Unified patient communications across WhatsApp, portal, and email
+          </p>
         </div>
       </div>
 
-      {/* 3-Pane Body */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* PANE 1: Conversation List */}
-        <div className="w-full sm:w-80 md:w-96 border-r border-[#232630] bg-[#12141A] flex flex-col shrink-0">
-          {/* Search bar */}
-          <div className="p-3 border-b border-[#232630]">
+      {/* 3-Column Communication Workspace */}
+      <div className="flex-1 flex bg-white border border-slate-200 rounded-lg overflow-hidden shadow-none">
+        {/* PANE 1: Conversation List (280–320px) */}
+        <div className="w-full sm:w-80 border-r border-slate-200 flex flex-col bg-slate-50/50">
+          {/* Search & Channel Filter */}
+          <div className="p-3 border-b border-slate-200 space-y-2 bg-white">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
+                placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search messages or patient..."
-                className="w-full bg-[#161820] border border-[#272B37] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
+                className="w-full text-xs pl-8 pr-3 py-1.5 rounded-md border border-slate-200 focus:outline-none focus:border-teal-600 bg-slate-50 focus:bg-white text-slate-900"
               />
+            </div>
+
+            <div className="flex gap-1 overflow-x-auto text-[11px]">
+              {["ALL", "WHATSAPP", "PORTAL", "EMAIL"].map((ch) => (
+                <button
+                  key={ch}
+                  onClick={() => setSelectedChannel(ch)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                    selectedChannel === ch
+                      ? "bg-slate-200 text-slate-900 font-semibold"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                  }`}
+                >
+                  {ch === "ALL" ? "All Channels" : ch.charAt(0) + ch.slice(1).toLowerCase()}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Conversation list */}
-          <div className="flex-1 overflow-y-auto divide-y divide-[#1D2028]">
+          {/* Conversation Items */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
             {filteredConversations.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500 space-y-2">
-                <MessageSquare className="w-8 h-8 text-slate-700 mx-auto" />
-                <p>No conversations match your filter</p>
-              </div>
+              <p className="text-xs text-slate-400 p-6 text-center">No conversations found.</p>
             ) : (
-              filteredConversations.map((c) => {
-                const isSelected = c.id === activeConv?.id;
+              filteredConversations.map((conv) => {
+                const isSelected = activeConv && activeConv.id === conv.id;
 
                 return (
                   <button
-                    key={c.id}
-                    onClick={() => setSelectedConvId(c.id)}
-                    className={`w-full text-left p-4 transition-all flex items-start gap-3 ${
+                    key={conv.id}
+                    onClick={() => setSelectedConvId(conv.id)}
+                    className={`w-full p-3 text-left transition-colors flex items-start gap-2.5 ${
                       isSelected
-                        ? "bg-[#181C26] border-l-2 border-teal-500"
-                        : "hover:bg-[#161922]"
+                        ? "bg-teal-50/70 border-l-2 border-teal-600"
+                        : "hover:bg-slate-100/60"
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-full bg-slate-800 text-teal-400 border border-[#272B38] flex items-center justify-center font-bold text-xs shrink-0">
-                      {c.contactName.charAt(0)}
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-medium text-slate-700 text-xs shrink-0 mt-0.5">
+                      {conv.contactName.charAt(0)}
                     </div>
 
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white truncate">
-                          {c.contactName}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <span
+                          className={`text-xs truncate ${
+                            isSelected ? "font-semibold text-slate-900" : "font-medium text-slate-800"
+                          }`}
+                        >
+                          {conv.contactName}
                         </span>
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          {new Date(c.lastMessageAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {(conv.lastMessageAt || "").slice(11, 16)}
                         </span>
                       </div>
 
-                      <p className="text-[11px] text-slate-400 truncate leading-relaxed">
-                        {c.lastMessagePreview}
+                      <p className="text-xs text-slate-500 truncate mb-1">
+                        {conv.lastMessagePreview}
                       </p>
 
-                      <div className="flex items-center gap-2 pt-0.5">
-                        <span
-                          className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
-                            c.channel === "WHATSAPP"
-                              ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800/60"
-                              : c.channel === "PORTAL"
-                              ? "bg-teal-950/80 text-teal-400 border border-teal-800/60"
-                              : "bg-sky-950/80 text-sky-400 border border-sky-800/60"
-                          }`}
-                        >
-                          {c.channel}
-                        </span>
-
-                        {c.aiEnabled && (
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 flex items-center gap-1">
-                            <Bot className="w-2.5 h-2.5" />
-                            AI Active
-                          </span>
-                        )}
-
-                        {c.unreadCount > 0 && (
-                          <span className="ml-auto w-4 h-4 rounded-full bg-teal-500 text-black font-bold text-[9px] flex items-center justify-center">
-                            {c.unreadCount}
-                          </span>
+                      <div className="flex items-center justify-between text-[10px]">
+                        {getChannelBadge(conv.channel)}
+                        {conv.unreadCount > 0 && (
+                          <span className="w-2 h-2 rounded-full bg-teal-600" />
                         )}
                       </div>
                     </div>
@@ -236,105 +234,59 @@ export default function StaffInboxPage() {
           </div>
         </div>
 
-        {/* PANE 2: Active Chat Thread */}
+        {/* PANE 2: Active Conversation Thread (Center) */}
         {activeConv ? (
-          <div className="flex-1 flex flex-col bg-[#0F1116] overflow-hidden">
-            {/* Conversation Header */}
-            <div className="p-4 border-b border-[#232630] bg-[#14161B] flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-teal-950 border border-teal-800 text-teal-400 font-bold flex items-center justify-center text-sm">
-                  {activeConv.contactName.charAt(0)}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold text-white">{activeConv.contactName}</h2>
-                    <span className="text-xs text-slate-500 font-mono">
-                      {activeConv.contactPhone}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                    <span>Channel: {activeConv.channel}</span>
-                    <span>&bull;</span>
-                    <span className="text-emerald-400">Connected</span>
-                  </div>
-                </div>
+          <div className="flex-1 flex flex-col min-w-0 bg-white">
+            {/* Thread Header */}
+            <div className="h-14 border-b border-slate-200 px-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="font-semibold text-sm text-slate-900 truncate">
+                  {activeConv.contactName}
+                </span>
+                {getChannelBadge(activeConv.channel)}
               </div>
 
-              {/* AI Auto-Receptionist Toggle */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1A1E27] border border-[#272C39] text-xs">
-                  <Bot
-                    className={`w-4 h-4 ${
-                      activeConv.aiEnabled ? "text-purple-400 animate-pulse" : "text-slate-500"
-                    }`}
-                  />
-                  <div className="text-left">
-                    <p className="text-[10px] font-mono text-slate-400 uppercase">Receptionist AI</p>
-                    <p className="text-xs font-semibold text-white">
-                      {activeConv.aiEnabled ? "Autonomous Reply" : "Manual / Paused"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleToggleAi}
-                    className={`ml-2 text-xs px-2.5 py-1 rounded-lg font-semibold transition-all ${
-                      activeConv.aiEnabled
-                        ? "bg-purple-900/60 hover:bg-purple-800/60 text-purple-200 border border-purple-700"
-                        : "bg-slate-800 hover:bg-slate-700 text-slate-300"
-                    }`}
-                  >
-                    {activeConv.aiEnabled ? "Pause AI" : "Enable AI"}
-                  </button>
-                </div>
+              {/* AI Triage Toggle */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleToggleAi}
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md border transition-colors ${
+                    activeConv.aiEnabled
+                      ? "bg-teal-50 text-teal-800 border-teal-200"
+                      : "bg-slate-50 text-slate-600 border-slate-200"
+                  }`}
+                >
+                  <Bot className="w-3.5 h-3.5 text-teal-700" />
+                  <span>{activeConv.aiEnabled ? "AI Triage Active" : "Human Only"}</span>
+                </button>
               </div>
             </div>
 
-            {/* Message Thread */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-              {messages.map((msg) => {
-                const isOutbound = msg.direction === "OUTBOUND";
+            {/* Messages Scroll Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30">
+              {messages.map((m) => {
+                const isOutbound = m.direction === "OUTBOUND";
 
                 return (
                   <div
-                    key={msg.id}
-                    className={`flex gap-3 max-w-[85%] sm:max-w-[75%] ${
-                      isOutbound ? "ml-auto flex-row-reverse" : "mr-auto"
+                    key={m.id}
+                    className={`flex flex-col max-w-[75%] ${
+                      isOutbound ? "ml-auto items-end" : "mr-auto items-start"
                     }`}
                   >
                     <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                      className={`rounded-lg p-3 text-xs leading-relaxed ${
                         isOutbound
-                          ? "bg-teal-950 text-teal-300 border border-teal-800"
-                          : "bg-[#252936] text-slate-300 border border-[#333849]"
+                          ? "bg-[#0D9488] text-white"
+                          : "bg-white border border-slate-200 text-slate-800 shadow-none"
                       }`}
                     >
-                      {isOutbound ? "S" : activeConv.contactName.charAt(0)}
+                      <p>{m.content}</p>
                     </div>
 
-                    <div
-                      className={`space-y-1 ${
-                        isOutbound ? "items-end text-right" : "items-start text-left"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                        <span>{isOutbound ? msg.senderName || "Clinic Staff" : activeConv.contactName}</span>
-                        <span>&bull;</span>
-                        <span>
-                          {new Date(msg.timestamp).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-
-                      <div
-                        className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
-                          isOutbound
-                            ? "bg-teal-600 text-white rounded-tr-none shadow-md"
-                            : "bg-[#1A1D26] text-slate-200 border border-[#272B38] rounded-tl-none"
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                      </div>
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1 font-mono">
+                      <span>{(m.timestamp || "").slice(11, 16)}</span>
+                      {isOutbound && <CheckCircle2 className="w-3 h-3 text-teal-600" />}
                     </div>
                   </div>
                 );
@@ -342,38 +294,22 @@ export default function StaffInboxPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* AI Warning or Status */}
-            {activeConv.aiEnabled && (
-              <div className="px-4 py-2 bg-purple-950/30 border-t border-purple-900/40 flex items-center justify-between text-[11px] text-purple-300">
-                <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                  AI Receptionist (Maya) is currently handling triage for this thread.
-                </span>
-                <button
-                  onClick={handleToggleAi}
-                  className="underline hover:text-white font-semibold"
-                >
-                  Take Over Conversation
-                </button>
-              </div>
-            )}
-
-            {/* Reply Composer */}
+            {/* Outbound Message Composer */}
             <form
               onSubmit={handleSendMessage}
-              className="p-4 bg-[#14161B] border-t border-[#232630] flex items-center gap-2"
+              className="p-3 border-t border-slate-200 bg-white flex items-center gap-2"
             >
               <input
                 type="text"
+                placeholder={`Reply to ${activeConv.contactName} on ${activeConv.channel}...`}
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
-                placeholder={`Reply to ${activeConv.contactName} via ${activeConv.channel}...`}
-                className="flex-1 bg-[#101217] border border-[#2B2F3D] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 transition-colors"
+                className="flex-1 text-xs px-3 py-2 rounded-md border border-slate-200 focus:outline-none focus:border-teal-600 bg-slate-50 focus:bg-white text-slate-900 transition-colors"
               />
               <button
                 type="submit"
                 disabled={!replyText.trim()}
-                className="bg-[#0D9488] hover:bg-[#0F766E] disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-md flex items-center gap-1.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-[#0D9488] hover:bg-[#0F766E] disabled:opacity-50 text-white text-xs font-medium transition-colors"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Send</span>
@@ -381,98 +317,66 @@ export default function StaffInboxPage() {
             </form>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">
-            Select a conversation to view chat history
+          <div className="flex-1 flex items-center justify-center text-xs text-slate-400">
+            Select a conversation to start messaging.
           </div>
         )}
 
-        {/* PANE 3: Contact Context Drawer (hidden on mobile/tablet) */}
+        {/* PANE 3: Client Context Panel (Desktop Right ~280px) */}
         {contact && (
-          <div className="hidden lg:block w-80 border-l border-[#232630] bg-[#12141A] p-5 overflow-y-auto space-y-6 shrink-0 text-xs">
-            {/* Contact Header */}
-            <div className="text-center space-y-2 pb-4 border-b border-[#232630]">
-              <div className="w-16 h-16 rounded-full bg-teal-950 border-2 border-teal-800 text-teal-300 font-bold text-xl flex items-center justify-center mx-auto">
+          <div className="hidden lg:flex w-72 border-l border-slate-200 flex-col bg-slate-50/40 p-4 space-y-4 overflow-y-auto">
+            <div className="text-center pb-3 border-b border-slate-200">
+              <div className="w-12 h-12 rounded-full bg-slate-200 mx-auto flex items-center justify-center font-bold text-slate-700 text-sm mb-2">
                 {contact.firstName.charAt(0)}
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-white">{contact.fullName}</h3>
-                <p className="text-[11px] text-slate-400 font-mono">{contact.email}</p>
-                <p className="text-[11px] text-teal-400 font-mono">{contact.phone}</p>
-              </div>
-
-              <Link
-                href={`/app/contacts/${contact.id}`}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-400 hover:text-teal-300 bg-teal-950/60 border border-teal-800/60 px-3 py-1.5 rounded-lg transition-colors mt-2"
-              >
-                <span>Open 360° Card</span>
-                <ExternalLink className="w-3 h-3" />
-              </Link>
+              <h3 className="font-semibold text-xs text-slate-900">{contact.fullName}</h3>
+              <p className="text-[11px] text-slate-500 font-mono mt-0.5">{contact.phone}</p>
             </div>
 
-            {/* Quick Context */}
-            <div className="space-y-3">
-              <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block">
-                Practice OS Metadata
-              </span>
-
-              <div className="p-3 rounded-xl bg-[#161822] border border-[#252834] space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Record Status:</span>
-                  <span className="text-emerald-400 font-medium">{contact.status}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Primary Tag:</span>
-                  <span className="text-teal-400 font-medium">{contact.tags[0] || "Verified Patient"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Notes On File:</span>
-                  <span className="text-white font-medium">{contact.notesCount} entries</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Intake Filed:</span>
-                  <span className="text-slate-200 font-medium">
-                    {contact.intakeCompleted ? "Yes" : "Pending"}
-                  </span>
-                </div>
+            {/* Quick Context Details */}
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-500">Status</span>
+                <span className="font-medium text-slate-800">{contact.status}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-500">Location</span>
+                <span className="font-medium text-slate-800">{contact.city || activeTenant.city}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-500">Lead Source</span>
+                <span className="font-medium text-slate-800">{contact.tags[0] || "Website"}</span>
               </div>
             </div>
 
             {/* Next Appointment Card */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block">
+            <div className="bg-white p-3 rounded-md border border-slate-200 space-y-1 text-xs">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
                 Next Appointment
               </span>
               {nextAppt ? (
-                <div className="p-3 rounded-xl bg-[#161822] border border-[#252834] space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-white font-mono">{nextAppt.date}</span>
-                    <span className="text-[10px] font-mono text-teal-400">{nextAppt.startTime}</span>
-                  </div>
-                  <p className="text-slate-300 font-medium text-[11px] truncate">{nextAppt.serviceName}</p>
-                  <p className="text-slate-500 text-[10px]">With {nextAppt.staffName}</p>
+                <div>
+                  <p className="font-semibold text-slate-900 text-xs">
+                    {nextAppt.date} at {nextAppt.startTime}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {nextAppt.serviceName} &bull; {nextAppt.staffName}
+                  </p>
                 </div>
               ) : (
-                <div className="p-3 rounded-xl bg-[#161822] border border-[#252834] text-slate-500 text-center text-[11px]">
-                  No upcoming appointment
-                </div>
+                <p className="text-slate-400 text-xs">None scheduled</p>
               )}
             </div>
 
-            {/* Clinical Tags */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block">
-                Clinical Tags
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {contact.tags.map((tag, idx) => (
-                  <span
-                    key={idx}
-                    className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1A1D27] text-slate-300 border border-[#282C3A]"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
+            {/* Full 360 Link */}
+            <div className="pt-2">
+              <Link
+                href={`/app/contacts/${contact.id}`}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                <span>Open 360 Client Card</span>
+              </Link>
             </div>
           </div>
         )}

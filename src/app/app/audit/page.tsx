@@ -1,142 +1,69 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import {
-  ShieldCheck,
-  Search,
-  Lock,
-  Clock,
-  User,
-  Filter,
-  Download,
-  AlertCircle,
-  FileSpreadsheet,
-} from "lucide-react";
+import React, { useState } from "react";
+import { ShieldCheck, Search, Filter } from "lucide-react";
 import { useTenant } from "@/context/tenant-context";
-import { mockStore } from "@/lib/mock/store";
-import { AuditLogEntry } from "@/types";
 
-export default function StaffAuditLogPage() {
-  const { activeTenant } = useTenant();
-  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [actionFilter, setActionFilter] = useState("ALL");
+interface AuditEntry {
+  id: string;
+  action: string;
+  actor: string;
+  timestamp: string;
+  resource: string;
+  ip: string;
+}
 
-  const loadData = () => {
-    setLogs(mockStore.getAuditLogs(activeTenant.id));
-  };
+const AUDIT_LOGS: AuditEntry[] = [
+  { id: "aud-1", action: "PATIENT_RECORD_VIEW", actor: "Dr. Clinician", timestamp: "2026-09-13 10:14:02", resource: "Patient #cnt-01", ip: "103.182.65.1" },
+  { id: "aud-2", action: "APPOINTMENT_RESCHEDULE", actor: "Reception Desk", timestamp: "2026-09-13 09:42:15", resource: "Booking #apt-02", ip: "103.182.65.1" },
+  { id: "aud-3", action: "INTAKE_FORM_VERIFIED", actor: "Reception Desk", timestamp: "2026-09-12 16:30:11", resource: "Form #frm-01", ip: "103.182.65.1" },
+  { id: "aud-4", action: "PRESCRIPTION_LOGGED", actor: "Dr. Clinician", timestamp: "2026-09-12 11:20:44", resource: "Exercise Plan", ip: "103.182.65.1" },
+  { id: "aud-5", action: "LOGIN_SUCCESS", actor: "Dr. Clinician", timestamp: "2026-09-12 08:55:01", resource: "Staff Portal", ip: "103.182.65.1" },
+];
 
-  useEffect(() => {
-    loadData();
-    const unsubscribe = mockStore.subscribe(loadData);
-    return () => unsubscribe();
-  }, [activeTenant.id]);
+export default function StaffAuditPage() {
+  const [search, setSearch] = useState("");
 
-  const filteredLogs = logs.filter((log) => {
-    const matchAction = actionFilter === "ALL" || log.action === actionFilter;
-    const matchSearch =
-      log.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.entity.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchAction && matchSearch;
-  });
+  const filtered = AUDIT_LOGS.filter((a) =>
+    a.action.toLowerCase().includes(search.toLowerCase()) ||
+    a.actor.toLowerCase().includes(search.toLowerCase()) ||
+    a.resource.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6 p-6 sm:p-8 max-w-7xl mx-auto">
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#14161B] border border-[#232630] rounded-3xl p-6 sm:p-8">
+    <div className="max-w-7xl mx-auto space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 text-xs font-mono text-teal-400 mb-1">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Regulatory &amp; Clinical Data Protection</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Security &amp; Access Audit Trail</h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Tamper-evident, immutable audit trail logging staff access to patient records, appointment changes, and security events.
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">Audit Log</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Immutable clinical access trail, authentication events, and data modifications
           </p>
         </div>
-
-        <div className="flex items-center gap-2 bg-[#101216] px-4 py-2 rounded-xl border border-[#232630] text-xs font-mono text-emerald-400 self-start sm:self-auto">
-          <Lock className="w-3.5 h-3.5" />
-          <span>Append-Only Storage</span>
-        </div>
       </div>
 
-      {/* Compliance Box */}
-      <div className="p-5 rounded-3xl bg-[#14161B] border border-[#232630] flex items-start gap-3.5 text-xs text-slate-400">
-        <AlertCircle className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
-          Every action involving patient health information (PHI)—including chart views, prescription notes, and intake questionnaire reviews—is cryptographically recorded with staff actor identity, timestamp, and IP address in accordance with clinical record retention guidelines.
-        </p>
-      </div>
-
-      {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-white uppercase tracking-wider">
-            Audit Events ({filteredLogs.length})
-          </span>
-        </div>
-
-        <div className="relative w-full sm:w-72">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search audit trail..."
-            className="w-full bg-[#12141A] border border-[#232630] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
-          />
-        </div>
-      </div>
-
-      {/* Audit Log Table */}
-      <div className="bg-[#14161B] border border-[#232630] rounded-3xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-[#101217] text-[10px] uppercase font-mono text-slate-400 border-b border-[#232630]">
-              <tr>
-                <th className="px-6 py-3.5">Timestamp</th>
-                <th className="px-6 py-3.5">Staff User</th>
-                <th className="px-6 py-3.5">Action Event</th>
-                <th className="px-6 py-3.5">Target Entity</th>
-                <th className="px-6 py-3.5">Details</th>
-                <th className="px-6 py-3.5">IP Address</th>
+      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-none">
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-medium uppercase tracking-wider text-[11px]">
+              <th className="py-2.5 px-4">Event Action</th>
+              <th className="py-2.5 px-4">Actor</th>
+              <th className="py-2.5 px-4">Resource</th>
+              <th className="py-2.5 px-4">Timestamp</th>
+              <th className="py-2.5 px-4">IP Address</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filtered.map((log) => (
+              <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
+                <td className="py-3 px-4 font-mono font-medium text-slate-900 text-[11px]">{log.action}</td>
+                <td className="py-3 px-4 text-slate-700">{log.actor}</td>
+                <td className="py-3 px-4 text-slate-600">{log.resource}</td>
+                <td className="py-3 px-4 text-slate-400 font-mono text-[11px]">{log.timestamp}</td>
+                <td className="py-3 px-4 text-slate-400 font-mono text-[11px]">{log.ip}</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-[#20232C]">
-              {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-[#161822] transition-colors font-mono text-[11px]">
-                  <td className="px-6 py-4 text-slate-400 whitespace-nowrap">
-                    {new Date(log.timestamp).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 text-white font-semibold font-sans">
-                    {log.user}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                        log.action.includes("CREATE")
-                          ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                          : log.action.includes("UPDATE")
-                          ? "bg-teal-950 text-teal-400 border border-teal-800"
-                          : "bg-purple-950 text-purple-400 border border-purple-800"
-                      }`}
-                    >
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-300 font-sans">{log.entity}</td>
-                  <td className="px-6 py-4 text-slate-400 font-sans max-w-xs truncate">
-                    {log.details}
-                  </td>
-                  <td className="px-6 py-4 text-slate-500">{log.ipAddress}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
