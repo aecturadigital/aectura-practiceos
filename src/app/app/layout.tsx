@@ -28,7 +28,9 @@ import {
   Search,
   Building2,
   CreditCard,
+  LogOut,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTenant } from "@/context/tenant-context";
 import { TenantSwitcher } from "@/components/ui/tenant-switcher";
 import { DemoEnvironmentBadge } from "@/components/ui/demo-environment-badge";
@@ -36,9 +38,37 @@ import { NotificationDrawer } from "@/components/ui/notification-drawer";
 import { FeatureKey } from "@/lib/plans";
 
 export default function StaffAppLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { activeTenant, vertical, plan, hasAccess } = useTenant();
+  const [userSession, setUserSession] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    roles: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user) {
+          setUserSession(data.user);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } catch {
+      router.push("/login");
+    }
+  };
 
   // Primary Staff Practitioner
   const primaryPractitioner = activeTenant.team?.find(
@@ -214,7 +244,9 @@ export default function StaffAppLayout({ children }: { children: React.ReactNode
           {/* Staff User Profile */}
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
             <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-medium text-teal-700 text-xs overflow-hidden">
-              {primaryPractitioner.avatarUrl ? (
+              {userSession ? (
+                userSession.name.charAt(0)
+              ) : primaryPractitioner.avatarUrl ? (
                 <img
                   src={primaryPractitioner.avatarUrl}
                   alt={primaryPractitioner.name}
@@ -226,12 +258,19 @@ export default function StaffAppLayout({ children }: { children: React.ReactNode
             </div>
             <div className="hidden lg:block text-left">
               <p className="text-xs font-medium text-slate-900 leading-tight">
-                {primaryPractitioner.name}
+                {userSession?.name || primaryPractitioner.name}
               </p>
               <p className="text-[11px] text-slate-500 leading-none truncate max-w-[120px]">
-                {primaryPractitioner.title}
+                {userSession?.roles?.join(", ") || primaryPractitioner.title}
               </p>
             </div>
+            <button
+              onClick={handleLogout}
+              title="Sign out of PracticeOS"
+              className="ml-1 p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </header>

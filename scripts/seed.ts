@@ -1,4 +1,5 @@
 import { getDb } from "../src/lib/db";
+import { hashPassword } from "../src/lib/auth/password";
 import {
   roles,
   users,
@@ -38,7 +39,9 @@ async function seed() {
   }
 
   // 2. PRACTITIONER & STAFF USERS
-  console.log("[2/9] Seeding clinical practitioners and staff...");
+  console.log("[2/9] Seeding clinical practitioners and staff with hashed credentials...");
+  const defaultPasswordHash = hashPassword("Soulmates@2026!");
+
   let [ownerUser] = await db.select().from(users).where(eq(users.email, "owner@soulmatestherapy.com")).limit(1);
   if (!ownerUser) {
     [ownerUser] = await db
@@ -46,7 +49,7 @@ async function seed() {
       .values({
         email: "owner@soulmatestherapy.com",
         name: "Col Umakant Saxena",
-        passwordHash: "hash_configured",
+        passwordHash: defaultPasswordHash,
         isActive: true,
       })
       .returning();
@@ -55,6 +58,8 @@ async function seed() {
       { userId: ownerUser.id, roleId: "OWNER" },
       { userId: ownerUser.id, roleId: "PRACTITIONER" },
     ]).onConflictDoNothing();
+  } else {
+    await db.update(users).set({ passwordHash: defaultPasswordHash }).where(eq(users.id, ownerUser.id));
   }
 
   let [receptionUser] = await db.select().from(users).where(eq(users.email, "staff@soulmatestherapy.com")).limit(1);
@@ -64,7 +69,7 @@ async function seed() {
       .values({
         email: "staff@soulmatestherapy.com",
         name: "Priya Sharma (Staff)",
-        passwordHash: "hash_configured",
+        passwordHash: defaultPasswordHash,
         isActive: true,
       })
       .returning();
@@ -72,6 +77,8 @@ async function seed() {
     await db.insert(userRoles).values([
       { userId: receptionUser.id, roleId: "RECEPTIONIST" },
     ]).onConflictDoNothing();
+  } else {
+    await db.update(users).set({ passwordHash: defaultPasswordHash }).where(eq(users.id, receptionUser.id));
   }
 
   // Staff Profile

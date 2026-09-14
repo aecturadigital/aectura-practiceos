@@ -1,47 +1,34 @@
-export type Role = 
-  | "super_admin" 
-  | "tenant_owner" 
-  | "tenant_admin" 
-  | "practitioner" 
-  | "receptionist" 
-  | "patient";
+export * from "./password";
+export * from "./permissions";
+export * from "./session";
 
-export interface SessionUser {
+import { AuthenticatedUser } from "./session";
+import { ClinicRole, PERMISSIONS } from "./permissions";
+
+// Backward-compatible type aliases
+export type Role = ClinicRole;
+export type SessionUser = AuthenticatedUser;
+
+/**
+ * Fallback resolver for testing context
+ */
+export function resolveSession(headersOrCookies?: any): {
   id: string;
   name: string;
   email: string;
+  roles: ClinicRole[];
+  role: ClinicRole;
   isSuperAdmin: boolean;
-  tenantId?: string;
-  role?: Role;
-}
-
-export const PERMISSIONS = {
-  "admin:manage_practices": ["super_admin"],
-  "tenant:settings": ["super_admin", "tenant_owner", "tenant_admin"],
-  "contacts:read": ["super_admin", "tenant_owner", "tenant_admin", "practitioner", "receptionist"],
-  "contacts:write": ["super_admin", "tenant_owner", "tenant_admin", "practitioner", "receptionist"],
-  "appointments:read": ["super_admin", "tenant_owner", "tenant_admin", "practitioner", "receptionist"],
-  "appointments:write": ["super_admin", "tenant_owner", "tenant_admin", "practitioner", "receptionist"],
-} as const;
-
-export function hasPermission(role: Role, action: keyof typeof PERMISSIONS): boolean {
-  return PERMISSIONS[action]?.includes(role as any) ?? false;
-}
-
-// Development / Request Context Session Resolver
-export function resolveSession(headersOrCookies?: any): SessionUser {
-  // Check for simulated test headers
-  const userId = headersOrCookies?.get?.("x-user-id") || "super-admin-01";
-  const userRole = (headersOrCookies?.get?.("x-user-role") as Role) || "super_admin";
-  const tenantId = headersOrCookies?.get?.("x-tenant-id") || undefined;
-  const isSuperAdmin = userRole === "super_admin";
+} {
+  const userId = headersOrCookies?.get?.("x-user-id") || "owner-soulmates";
+  const userRole = (headersOrCookies?.get?.("x-user-role") as ClinicRole) || "OWNER";
 
   return {
     id: userId,
-    name: isSuperAdmin ? "Aectura Super Admin" : "Practice Staff Member",
-    email: isSuperAdmin ? "admin@aectura.com" : "staff@clinic.practiceos.com",
-    isSuperAdmin,
-    tenantId,
+    name: userRole === "OWNER" ? "Col Umakant Saxena" : "Staff Member",
+    email: userRole === "OWNER" ? "owner@soulmatestherapy.com" : "staff@soulmatestherapy.com",
+    roles: [userRole],
     role: userRole,
+    isSuperAdmin: userRole === "OWNER",
   };
 }

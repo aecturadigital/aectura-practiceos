@@ -8,6 +8,7 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "test:isolation": "tsx scripts/test-isolation.ts",
+    "test:auth": "tsx scripts/test-auth.ts",
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
