@@ -27,6 +27,7 @@ import {
   Lock,
   Search,
   Building2,
+  CreditCard,
 } from "lucide-react";
 import { useTenant } from "@/context/tenant-context";
 import { TenantSwitcher } from "@/components/ui/tenant-switcher";
@@ -81,6 +82,12 @@ export default function StaffAppLayout({ children }: { children: React.ReactNode
       icon: Inbox,
       feature: "whatsapp",
       badge: "2",
+    },
+    {
+      label: "Billing",
+      href: "/app/billing",
+      icon: CreditCard,
+      feature: "payments",
     },
   ];
 

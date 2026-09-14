@@ -34,6 +34,8 @@ import { useTenant } from "@/context/tenant-context";
 import { mockStore } from "@/lib/mock/store";
 import { Contact, Appointment, Message, Exercise, ContactStatus } from "@/types";
 import { UpgradeBanner } from "@/components/ui/upgrade-banner";
+import { TreatmentPlanCard } from "@/components/treatment-plan-card";
+import { CreditCard, Edit3, ShieldAlert, Receipt } from "lucide-react";
 
 export default function ContactDetailPage() {
   const params = useParams();
@@ -44,8 +46,8 @@ export default function ContactDetailPage() {
   const contact = mockStore.getContact(contactId);
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "timeline" | "appointments" | "messages" | "forms" | "documents" | "clinical"
-  >("timeline");
+    "overview" | "treatmentPlan" | "timeline" | "appointments" | "messages" | "forms" | "documents" | "clinical"
+  >("overview");
 
   // Notes state
   const [newNote, setNewNote] = useState("");
@@ -66,6 +68,13 @@ export default function ContactDetailPage() {
 
   // Reply state for messages tab
   const [replyText, setReplyText] = useState("");
+
+  // Demographic Correction Modal State
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [correctionField, setCorrectionField] = useState("phone");
+  const [correctionValue, setCorrectionValue] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionSuccess, setCorrectionSuccess] = useState(false);
 
   // Quick Action Modals
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
@@ -100,11 +109,48 @@ export default function ContactDetailPage() {
     );
   }
 
+  const activeCycle = mockStore.getActivePlanCycle(contact.id);
+  const courses = mockStore.getTreatmentCourses(activeTenant.id, contact.id);
+  const activeCourse = activeCycle
+    ? courses.find((c) => c.id === activeCycle.treatmentCourseId) || courses[0]
+    : courses[0];
+  const ledger = mockStore.getPatientLedger(activeTenant.id, contact.id);
+  const procedureAddOns = mockStore.getProcedureAddOns(contact.id);
+  const planAdjustments = activeCycle ? mockStore.getPlanAdjustments(activeCycle.id) : [];
+
   const practitioner = activeTenant.team?.find((m) => m.id === contact.assignedPractitionerId) || activeTenant.team?.[0];
   const appointments = mockStore.getAppointments(activeTenant.id).filter((a) => a.contactId === contact.id);
   const messages = mockStore.getMessages(activeTenant.id, contact.id);
   const exercises = mockStore.getExercises(activeTenant.id, contact.id);
   const submissions = mockStore.getFormSubmissions(activeTenant.id).filter((s) => s.contactId === contact.id);
+
+  const handleCorrectionSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    mockStore.logStaffActivity(
+      activeTenant.id,
+      practitioner?.name || "Staff Clinician",
+      "REQUEST_CORRECTION",
+      contact.fullName,
+      `Correction requested for ${correctionField}: "${correctionValue}". Reason: ${correctionReason}`,
+      "PATIENT"
+    );
+    mockStore.updateContact(contact.id, {
+      pendingCorrection: {
+        field: correctionField,
+        oldValue: String((contact as Record<string, any>)[correctionField] || "Not provided"),
+        newValue: correctionValue,
+        requestedBy: practitioner?.name || "Staff Clinician",
+        requestedAt: new Date().toISOString(),
+      },
+    });
+    setCorrectionSuccess(true);
+    setTimeout(() => {
+      setIsCorrectionModalOpen(false);
+      setCorrectionSuccess(false);
+      setCorrectionValue("");
+      setCorrectionReason("");
+    }, 1200);
+  };
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
@@ -339,6 +385,17 @@ export default function ContactDetailPage() {
         </button>
 
         <button
+          onClick={() => setActiveTab("treatmentPlan")}
+          className={`pb-2.5 transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === "treatmentPlan"
+              ? "border-teal-600 text-teal-800 font-semibold"
+              : "border-transparent hover:text-slate-900"
+          }`}
+        >
+          Treatment &amp; Ledger {activeCycle ? `(${activeCycle.completedSessions}/${activeCycle.plannedSessions})` : ""}
+        </button>
+
+        <button
           onClick={() => setActiveTab("timeline")}
           className={`pb-2.5 transition-colors border-b-2 whitespace-nowrap ${
             activeTab === "timeline"
@@ -462,6 +519,173 @@ export default function ContactDetailPage() {
                     </span>
                   )) || (
                     <span className="text-xs text-slate-400">No specific symptoms recorded yet.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: TREATMENT PLAN & LEDGER */}
+          {activeTab === "treatmentPlan" && (
+            <div className="space-y-6">
+              {/* Flagship Treatment Plan Card */}
+              {activeCycle ? (
+                <TreatmentPlanCard
+                  cycle={activeCycle}
+                  course={activeCourse}
+                  contactName={contact.fullName}
+                  contactId={contact.id}
+                  nextAppointmentText="Tomorrow at 10:00 AM (Consultation Room 2)"
+                />
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-lg p-6 text-center text-xs text-slate-500">
+                  No active treatment plan found for this patient.
+                </div>
+              )}
+
+              {/* Double-Sided Patient Financial Ledger */}
+              <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-none space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-teal-700" />
+                      <span>Double-Sided Patient Financial Ledger</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Charges vs Payments breakdown with running balance &amp; receipts.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Net Outstanding:</span>
+                    <span className="text-sm font-bold font-mono text-rose-600 bg-rose-50 px-2.5 py-1 rounded border border-rose-200">
+                      &#8377;{ledger.netOutstanding.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                </div>
+
+                {ledger.transactions.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-6 text-center">No financial ledger entries recorded.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                        <tr>
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Type</th>
+                          <th className="py-2.5 px-3">Description</th>
+                          <th className="py-2.5 px-3">Method / Ref</th>
+                          <th className="py-2.5 px-3 text-right">Debit (+)</th>
+                          <th className="py-2.5 px-3 text-right">Credit (-)</th>
+                          <th className="py-2.5 px-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {ledger.transactions.map((tx) => {
+                          const isCharge = tx.type === "CHARGE" || tx.type === "PACKAGE_SALE" || tx.type === "ADD_ON_SERVICE";
+                          const isPayment = tx.type === "PAYMENT";
+                          return (
+                            <tr key={tx.id} className="hover:bg-slate-50/50">
+                              <td className="py-2.5 px-3 font-mono text-slate-600">{tx.date}</td>
+                              <td className="py-2.5 px-3">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                    isCharge
+                                      ? "bg-slate-100 text-slate-700"
+                                      : isPayment
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                      : "bg-amber-50 text-amber-700"
+                                  }`}
+                                >
+                                  {tx.type}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-medium text-slate-900">{tx.description}</td>
+                              <td className="py-2.5 px-3 text-slate-600 font-mono">
+                                {tx.method || tx.referenceNumber || "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-medium text-slate-900">
+                                {isCharge ? `+₹${tx.amount.toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-medium text-emerald-700">
+                                {isPayment ? `-₹${tx.amount.toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                                  {tx.status}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Procedure Add-Ons & Doctor Adjustments Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Procedure Add-Ons */}
+                <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-none space-y-3">
+                  <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                    Procedure Add-Ons
+                  </h4>
+                  {procedureAddOns.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-3">No procedure add-ons billed for this patient.</p>
+                  ) : (
+                    <div className="divide-y divide-slate-100 text-xs">
+                      {procedureAddOns.map((addon) => (
+                        <div key={addon.id} className="py-2.5 flex items-center justify-between">
+                          <div>
+                            <span className="font-semibold text-slate-900 block">{addon.procedureName}</span>
+                            <span className="text-slate-400 text-[11px] font-mono">
+                              {addon.createdAt.split("T")[0]} &bull; {addon.includedInPlan ? "Included in Plan" : "Charged Extra"}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-mono font-bold text-slate-900 block">
+                              &#8377;{addon.finalAmount.toLocaleString("en-IN")}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                addon.paymentStatus === "PAID"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : addon.paymentStatus === "WAIVED"
+                                  ? "bg-slate-100 text-slate-600"
+                                  : "bg-amber-50 text-amber-700"
+                              }`}
+                            >
+                              {addon.paymentStatus}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Plan Adjustments History */}
+                <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-none space-y-3">
+                  <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                    Doctor Plan Adjustments
+                  </h4>
+                  {planAdjustments.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-3">No plan adjustments recorded for this cycle.</p>
+                  ) : (
+                    <div className="divide-y divide-slate-100 text-xs">
+                      {planAdjustments.map((adj) => (
+                        <div key={adj.id} className="py-2.5 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-900">{adj.adjustmentType.replace(/_/g, " ")}</span>
+                            <span className="text-slate-400 font-mono text-[11px]">{adj.timestamp.split("T")[0]}</span>
+                          </div>
+                          <p className="text-slate-600 text-[11px]">{adj.reason}</p>
+                          <div className="text-slate-400 text-[10px] font-mono">
+                            Authorized by: {adj.changedBy} &bull; Impact: {String(adj.oldValue)} &rarr; {String(adj.newValue)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -749,10 +973,28 @@ export default function ContactDetailPage() {
                 <span className="text-slate-500">Lead Practitioner</span>
                 <span className="font-medium text-slate-800">{practitioner?.name}</span>
               </div>
-              <div className="flex items-center justify-between py-1">
-                <span className="text-slate-500">Care Plan</span>
-                <span className="font-medium text-slate-800">Standard Consult</span>
+              <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Active Course</span>
+                <span className="font-medium text-slate-800 truncate max-w-[150px]">{activeCourse?.title || "Standard Care"}</span>
               </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Plan Progress</span>
+                <span className="font-mono font-medium text-slate-900">
+                  {activeCycle ? `${activeCycle.completedSessions}/${activeCycle.plannedSessions} (${Math.round((activeCycle.completedSessions / activeCycle.plannedSessions) * 100)}%)` : "No cycle"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-slate-500">Ledger Due</span>
+                <span className="font-mono font-semibold text-rose-600">
+                  &#8377;{ledger.netOutstanding.toLocaleString("en-IN")}
+                </span>
+              </div>
+              <button
+                onClick={() => setActiveTab("treatmentPlan")}
+                className="w-full mt-2 py-1.5 px-2.5 text-center text-xs text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded font-medium transition-colors"
+              >
+                Open Treatment Plan &amp; Ledger &rarr;
+              </button>
             </div>
           </div>
 
@@ -887,6 +1129,83 @@ export default function ContactDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Demographic Correction Modal */}
+      {isCorrectionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-lg p-6 max-w-md w-full shadow-lg">
+            <h3 className="text-base font-semibold text-slate-900 mb-1">
+              Request Demographic Data Correction
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              All demographic changes are logged with staff identity for compliance and medical record integrity.
+            </p>
+
+            {correctionSuccess ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-md text-center text-xs text-emerald-800 font-medium">
+                Correction request logged and pending verification!
+              </div>
+            ) : (
+              <form onSubmit={handleCorrectionSubmit} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Field to Correct</label>
+                  <select
+                    value={correctionField}
+                    onChange={(e) => setCorrectionField(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
+                  >
+                    <option value="phone">Phone Number</option>
+                    <option value="email">Email Address</option>
+                    <option value="fullName">Full Legal Name</option>
+                    <option value="city">Residential City / Address</option>
+                    <option value="emergencyContact">Emergency Contact</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Corrected Value</label>
+                  <input
+                    type="text"
+                    required
+                    value={correctionValue}
+                    onChange={(e) => setCorrectionValue(e.target.value)}
+                    placeholder="Enter updated value..."
+                    className="w-full text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Reason / Supporting Document</label>
+                  <textarea
+                    rows={2}
+                    required
+                    value={correctionReason}
+                    onChange={(e) => setCorrectionReason(e.target.value)}
+                    placeholder="e.g. Patient provided updated Aadhaar / phone verification at desk"
+                    className="w-full text-xs p-2 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsCorrectionModalOpen(false)}
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-md border border-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-[#0D9488] hover:bg-[#0F766E] rounded-md transition-colors"
+                  >
+                    Submit Correction
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

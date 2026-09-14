@@ -20,6 +20,11 @@ import {
   Sparkles,
   Inbox,
   Filter,
+  CreditCard,
+  AlertTriangle,
+  CheckCircle,
+  FileCheck,
+  TrendingUp,
 } from "lucide-react";
 import { useTenant } from "@/context/tenant-context";
 import { mockStore } from "@/lib/mock/store";
@@ -44,6 +49,101 @@ export default function StaffDashboardPage() {
   const conversations = mockStore.getConversations(activeTenant.id);
   const unreadConversations = conversations.filter((c) => c.unreadCount > 0);
   const recentMessages = messages.slice(0, 4);
+
+  // Treatment Plan Operational Analytics & Needs Attention
+  const courses = mockStore.getTreatmentCourses(activeTenant.id);
+  const activeCoursesCount = courses.filter((c) => c.status === "ACTIVE").length || 3;
+  
+  // Needs Attention Items State
+  const [attentionItems, setAttentionItems] = useState([
+    {
+      id: "att-priya",
+      patientName: "Priya Sharma",
+      contactId: "cnt-mp-priya",
+      type: "PAYMENT_DUE",
+      badge: "₹5,800 Due",
+      badgeColor: "rose",
+      description: "Cycle 1 package balance outstanding after Session #18.",
+      actionLabel: "Send Reminder",
+    },
+    {
+      id: "att-rajesh",
+      patientName: "Rajesh Kumar",
+      contactId: "cnt-02",
+      type: "LOW_SESSIONS",
+      badge: "1 Session Left",
+      badgeColor: "amber",
+      description: "Cycle 1 has 1 of 12 sessions remaining. Re-assessment required.",
+      actionLabel: "Review Plan",
+    },
+    {
+      id: "att-aman",
+      patientName: "Aman Verma",
+      contactId: "cnt-03",
+      type: "NO_SHOWS",
+      badge: "3 Missed Visits",
+      badgeColor: "rose",
+      description: "Missed 3 consecutive rehab appointments. High drop-off risk.",
+      actionLabel: "Contact Patient",
+    },
+    {
+      id: "att-neha",
+      patientName: "Neha Singh",
+      contactId: "cnt-04",
+      type: "CYCLE_COMPLETED",
+      badge: "Cycle 1 Complete",
+      badgeColor: "emerald",
+      description: "Attended all 30 sessions. Ready for Month 2 progression.",
+      actionLabel: "Activate Month 2",
+    },
+  ]);
+
+  // Reminder Modal State
+  const [isReminderOpen, setIsReminderOpen] = useState(false);
+  const [reminderTarget, setReminderTarget] = useState<any>(null);
+  const [reminderMsg, setReminderMsg] = useState("");
+  const [reminderSent, setReminderSent] = useState(false);
+
+  // Cycle Activation Feedback State
+  const [activationFeedback, setActivationFeedback] = useState<string | null>(null);
+
+  const handleOpenReminder = (item: any) => {
+    setReminderTarget(item);
+    setReminderMsg(
+      `Dear ${item.patientName}, this is ${activeTenant.name}. You have an outstanding balance of ${item.badge.replace(" Due", "")} for your Treatment Plan. You can settle securely online via https://pay.aectura.in/${item.contactId} or at your next visit tomorrow. Thank you!`
+    );
+    setIsReminderOpen(true);
+  };
+
+  const handleSendReminder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reminderTarget) return;
+    mockStore.sendPaymentReminder(
+      activeTenant.id,
+      reminderTarget.contactId,
+      5800,
+      "WHATSAPP",
+      reminderMsg,
+      practitioner?.name || "Clinic Desk"
+    );
+    setReminderSent(true);
+    setTimeout(() => {
+      setReminderSent(false);
+      setIsReminderOpen(false);
+      // Update item state to show dispatched
+      setAttentionItems((prev) =>
+        prev.map((i) => (i.id === reminderTarget.id ? { ...i, badge: "Reminder Sent", badgeColor: "slate", actionLabel: "Sent ✓" } : i))
+      );
+    }, 1200);
+  };
+
+  const handleActivateNextMonth = (item: any) => {
+    setActivationFeedback(`Cycle 2 successfully activated for ${item.patientName}! Added ₹15,000 to patient ledger.`);
+    setAttentionItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, badge: "Month 2 Active", badgeColor: "emerald", actionLabel: "Active ✓" } : i))
+    );
+    setTimeout(() => setActivationFeedback(null), 4000);
+  };
 
   // Quick Add Contact Modal
   const [quickModalOpen, setQuickModalOpen] = useState(false);
@@ -203,6 +303,122 @@ export default function StaffDashboardPage() {
             {unreadConversations.length} awaiting response
           </p>
         </Link>
+      </div>
+
+      {/* Treatment Plan Management & Needs Attention Strip */}
+      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-none space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-slate-900">Treatment Plan Operations</h2>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                Care Cycles
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Active rehabilitation courses, plan cycle adherence, and clinical exception handling
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="text-slate-600">Active Plans:</span>
+              <span className="font-semibold text-slate-900 font-mono">14</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+              <span className="text-slate-600">Due:</span>
+              <span className="font-semibold text-rose-600 font-mono">₹24,600</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span className="text-slate-600">Ending Soon:</span>
+              <span className="font-semibold text-amber-700 font-mono">3</span>
+            </div>
+          </div>
+        </div>
+
+        {activationFeedback && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md text-xs text-emerald-800 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{activationFeedback}</span>
+          </div>
+        )}
+
+        {/* Needs Attention Exceptions Grid */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+              <span>Needs Attention ({attentionItems.length})</span>
+            </span>
+            <span className="text-[11px] text-slate-400">Action items requiring clinical or desk follow-up</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {attentionItems.map((item) => (
+              <div
+                key={item.id}
+                className="bg-slate-50/70 border border-slate-200 rounded-lg p-3 hover:border-slate-300 transition-colors flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-1 mb-1.5">
+                    <Link
+                      href={`/app/contacts/${item.contactId}`}
+                      className="text-xs font-semibold text-slate-900 hover:text-teal-700 transition-colors truncate block"
+                    >
+                      {item.patientName}
+                    </Link>
+                    <span
+                      className={`text-[10px] font-semibold px-1.5 py-0.2 rounded shrink-0 ${
+                        item.badgeColor === "rose"
+                          ? "bg-rose-100 text-rose-800"
+                          : item.badgeColor === "amber"
+                          ? "bg-amber-100 text-amber-800"
+                          : item.badgeColor === "emerald"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed mb-3">
+                    {item.description}
+                  </p>
+                </div>
+
+                <div>
+                  {item.type === "PAYMENT_DUE" ? (
+                    <button
+                      onClick={() => handleOpenReminder(item)}
+                      disabled={item.actionLabel.includes("✓")}
+                      className="w-full py-1 px-2 rounded text-xs font-medium text-white bg-[#0D9488] hover:bg-[#0F766E] disabled:opacity-50 transition-colors shadow-xs"
+                    >
+                      {item.actionLabel}
+                    </button>
+                  ) : item.type === "CYCLE_COMPLETED" ? (
+                    <button
+                      onClick={() => handleActivateNextMonth(item)}
+                      disabled={item.actionLabel.includes("✓")}
+                      className="w-full py-1 px-2 rounded text-xs font-medium text-teal-800 bg-teal-100 hover:bg-teal-200 disabled:opacity-50 transition-colors"
+                    >
+                      {item.actionLabel}
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/app/contacts/${item.contactId}`}
+                      className="w-full block text-center py-1 px-2 rounded text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+                    >
+                      {item.actionLabel} &rarr;
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Main Operational Panels */}
@@ -431,6 +647,73 @@ export default function StaffDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Human-Triggered Payment Reminder Modal */}
+      {isReminderOpen && reminderTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-lg p-6 max-w-md w-full shadow-lg">
+            <h3 className="text-base font-semibold text-slate-900 mb-1">
+              Send Payment Reminder to {reminderTarget.patientName}
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              AI-assisted draft. Review and edit before dispatching via WhatsApp.
+            </p>
+
+            {reminderSent ? (
+              <div className="py-6 text-center text-emerald-700 text-xs font-medium flex flex-col items-center gap-2">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                <span>WhatsApp reminder dispatched successfully!</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSendReminder} className="space-y-3">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-md text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Recipient:</span>
+                    <span className="font-medium text-slate-800">{reminderTarget.patientName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Balance Due:</span>
+                    <span className="font-mono font-bold text-rose-600">{reminderTarget.badge.replace(" Due", "")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Channel:</span>
+                    <span className="font-medium text-slate-800">WhatsApp (Official Practice Channel)</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Editable WhatsApp Message
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={reminderMsg}
+                    onChange={(e) => setReminderMsg(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-md border border-slate-300 focus:outline-none focus:border-teal-600 bg-white leading-relaxed"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsReminderOpen(false)}
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-md border border-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-[#0D9488] hover:bg-[#0F766E] rounded-md transition-colors"
+                  >
+                    Dispatch via WhatsApp
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Quick Add Contact Modal */}
       {quickModalOpen && (
