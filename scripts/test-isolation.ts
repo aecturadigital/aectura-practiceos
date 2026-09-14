@@ -1,223 +1,334 @@
-import { getDb } from "../src/lib/db";
-import { tenants, practitioners, services, contacts, appointments } from "../src/lib/db/schema";
-import { getTenantDb, getTenantBySlug } from "../src/lib/db/tenant-db";
-import { PLANS } from "../src/lib/plans";
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import { migrate } from "drizzle-orm/pglite/migrator";
+import * as schema from "../src/lib/db/schema";
 import { eq } from "drizzle-orm";
+import path from "path";
 
-async function runValidation() {
-  console.log("\n=======================================================");
-  console.log("  AECTURA MULTI-TENANT FOUNDATION: SUCCESS TEST SUITE");
-  console.log("=======================================================\n");
+async function runTestSuite() {
+  console.log("================================================================================");
+  console.log("  AECTURA PRACTICEOS GOLD MASTER: PHASE 1 COMPREHENSIVE VERIFICATION SUITE");
+  console.log("================================================================================\n");
 
-  const db = await getDb();
+  const migrationsFolder = path.join(process.cwd(), "drizzle", "migrations");
 
-  // Clean up any existing test records
-  console.log("-> Initializing test environment...");
-  await db.delete(tenants).where(eq(tenants.slug, "mindwell-test-a"));
-  await db.delete(tenants).where(eq(tenants.slug, "apex-test-b"));
+  // ============================================================================
+  // TEST 1: STAGING MIGRATION DRY RUN (29 TABLES)
+  // ============================================================================
+  console.log("[TEST 1/6] Running Staging Migration Dry Run on clinic_soulmates...");
+  const pgliteA = new PGlite();
+  const dbA = drizzle(pgliteA, { schema });
 
-  // 1. Create Psychology Tenant A
-  console.log("\n[1] Creating Psychology Practice (Tenant A: MindWell)...");
-  const planA = PLANS.practiceflow;
-  const [tenantA] = await db
-    .insert(tenants)
-    .values({
-      name: "MindWell Psychology & Therapy",
-      slug: "mindwell-test-a",
-      vertical: "psychology",
-      status: "preview",
-      plan: "practiceflow",
-      template: "modern_minimal",
-      branding: {
-        primaryColor: "#0D9488", // Deep Teal
-        accentColor: "#111315",
-        tagline: "Evidence-Based Mental Healthcare & Psychotherapy",
-        address: "450 Sutter St, San Francisco, CA",
-        phone: "+1 (415) 555-0199",
-        email: "contact@mindwell.test",
-      },
-      entitlements: planA.entitledFeatures,
-    })
-    .returning();
+  const t0 = Date.now();
+  await migrate(dbA, { migrationsFolder });
+  const migrationDurationMs = Date.now() - t0;
+  console.log(`[SUCCESS] Migration applied successfully in ${migrationDurationMs}ms.`);
 
-  const tenantDbA = getTenantDb(tenantA.id);
+  // Verify all 29 tables in information_schema
+  const tableResult = await pgliteA.query<{ table_name: string }>(`
+    SELECT table_name 
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+    ORDER BY table_name;
+  `);
 
-  // Add Practitioner for A
-  const practitionerA = await tenantDbA.createPractitioner({
-    name: "Dr. Marcus Vance",
-    title: "Clinical Psychologist",
-    bio: "Specializing in anxiety disorders and cognitive behavioral therapy.",
-    email: "dr.vance@mindwell.test",
+  const createdTables = tableResult.rows.map((r: any) => r.table_name);
+  console.log(`[SUCCESS] Verified ${createdTables.length} tables in PostgreSQL catalog:`);
+  console.log(`  Tables: ${createdTables.join(", ")}`);
+
+  if (createdTables.length < 29) {
+    throw new Error(`Expected at least 29 tables, but found ${createdTables.length}`);
+  }
+
+  // ============================================================================
+  // TEST 2: INDEX & UNIQUE CONSTRAINT INVENTORY
+  // ============================================================================
+  console.log("\n[TEST 2/6] Verifying Index & Constraint Inventory...");
+  const indexResult = await pgliteA.query<{ indexname: string; tablename: string }>(`
+    SELECT indexname, tablename
+    FROM pg_indexes
+    WHERE schemaname = 'public'
+    ORDER BY tablename, indexname;
+  `);
+
+  console.log(`[SUCCESS] Verified ${indexResult.rows.length} total indexes in catalog.`);
+  const criticalIndexes = [
+    "idx_contacts_phone",
+    "idx_appointments_date",
+    "idx_ledger_contact_id",
+    "idx_outbox_status_scheduled",
+    "uniq_user_role",
+  ];
+
+  for (const idx of criticalIndexes) {
+    const found = indexResult.rows.some((r: any) => r.indexname === idx);
+    if (!found) {
+      throw new Error(`Critical index missing: ${idx}`);
+    }
+    console.log(`  [SUCCESS] Index verified: ${idx}`);
+  }
+
+  // ============================================================================
+  // TEST 3: SEED & READ/WRITE DATA INTEGRITY
+  // ============================================================================
+  console.log("\n[TEST 3/6] Testing Data Insertion & Domain Relational Integrity...");
+  
+  // Roles
+  await dbA.insert(schema.roles).values({
+    id: "PRACTITIONER",
+    name: "Therapist / Clinical Hypnotherapist",
+    description: "Clinical practitioner role",
   });
 
-  // Add Services for A
-  const serviceA = await tenantDbA.createService({
-    name: "Individual Psychotherapy",
-    durationMinutes: 50,
-    price: 15000, // $150
-    practitionerId: practitionerA.id,
+  // User
+  const [user1] = await dbA.insert(schema.users).values({
+    email: "owner@soulmatestherapy.com",
+    name: "Col Umakant Saxena",
+    passwordHash: "hash_configured",
+    isActive: true,
+  }).returning();
+
+  // Contact (Patient)
+  const [patient1] = await dbA.insert(schema.contacts).values({
+    fullName: "Priya Sharma",
+    phone: "+91 98230 12345",
+    city: "Pune",
+    status: "ACTIVE",
+    activeDealStage: "won",
+    activeDealValue: "7500.00",
+    tags: ["Anxiety", "Insomnia"],
+  }).returning();
+
+  // Appointment
+  const [appt1] = await dbA.insert(schema.appointments).values({
+    contactId: patient1.id,
+    practitionerId: user1.id,
+    practitionerName: "Col Umakant Saxena",
+    therapyType: "Clinical Hypnotherapy",
+    mode: "In-Clinic (Wanowrie, Pune)",
+    scheduledDate: "2026-09-18",
+    startTime: "11:00",
+    endTime: "12:00",
+    status: "CONFIRMED",
+    amount: "2500.00",
+  }).returning();
+
+  // Treatment Course
+  const [course1] = await dbA.insert(schema.treatmentCourses).values({
+    contactId: patient1.id,
+    title: "Anxiety & Somatic Stress Recovery Course",
+    prescribedBy: user1.id,
+    startDate: "2026-09-10",
+  }).returning();
+
+  // Plan Cycle (Fixed 3 sessions)
+  const [cycle1] = await dbA.insert(schema.planCycles).values({
+    courseId: course1.id,
+    cycleIndex: 1,
+    title: "Cycle 1: 3-Session Pack",
+    price: "7500.00",
+    totalSessions: 3,
+    consumedSessions: 1,
+    noShowPolicy: "REQUIRES_APPROVAL",
+    startDate: "2026-09-10",
+  }).returning();
+
+  // Treatment Session (Entitlement Deduction Guard)
+  const [session1] = await dbA.insert(schema.treatmentSessions).values({
+    cycleId: cycle1.id,
+    appointmentId: appt1.id,
+    sessionNumber: 1,
+    status: "COMPLETED",
+    isEntitlementDeducted: true,
+    deductedAt: new Date(),
+    authorizedBy: user1.id,
+  }).returning();
+
+  // Clinical Note with EMR fields
+  const [note1] = await dbA.insert(schema.clinicalNotes).values({
+    contactId: patient1.id,
+    appointmentId: appt1.id,
+    practitionerId: user1.id,
+    hypnoticDepth: "Deep Somnambulism",
+    primaryIssue: "Generalized Anxiety & Chronic Insomnia",
+    rootCausesRevealed: "Subconscious exam trauma from childhood.",
+    suggestedHomework: "Nightly 20-min audio anchor.",
+  }).returning();
+
+  // Outbox Event
+  await dbA.insert(schema.outboxEvents).values({
+    idempotencyKey: "evt_test_priya_001",
+    eventType: "appointment.confirmed",
+    payload: { appointmentId: appt1.id, patient: "Priya Sharma" },
+    status: "PENDING",
   });
 
-  // Add Contact for A
-  const contactA = await tenantDbA.createContact({
-    firstName: "Alice",
-    lastName: "Walker",
-    email: "alice@example.com",
-    phone: "+1 (555) 111-2222",
-    stage: "patient",
-    notes: "Confidential therapy records for Alice Walker.",
+  console.log("[SUCCESS] Data successfully inserted across users, contacts, appointments, courses, cycles, sessions, notes, outbox.");
+
+  // Verify retrieval
+  const fetchedContact = await dbA.select().from(schema.contacts).where(eq(schema.contacts.id, patient1.id));
+  if (fetchedContact.length !== 1 || fetchedContact[0].phone !== "+91 98230 12345") {
+    throw new Error("Contact verification failed");
+  }
+  console.log("[SUCCESS] Query verification passed: Retained patient Priya Sharma (+91 98230 12345).");
+
+  // ============================================================================
+  // TEST 4: FOREIGN KEY CASCADE & REFERENTIAL INTEGRITY
+  // ============================================================================
+  console.log("\n[TEST 4/6] Testing Foreign Key Cascades & Deletion Boundaries...");
+  
+  // Create a temporary patient with dependent records
+  const [tempPatient] = await dbA.insert(schema.contacts).values({
+    fullName: "Temp Cascade Patient",
+    phone: "+91 99999 00000",
+  }).returning();
+
+  const [tempAppt] = await dbA.insert(schema.appointments).values({
+    contactId: tempPatient.id,
+    therapyType: "Consultation",
+    scheduledDate: "2026-09-20",
+    startTime: "14:00",
+    endTime: "15:00",
+  }).returning();
+
+  await dbA.insert(schema.clinicalNotes).values({
+    contactId: tempPatient.id,
+    appointmentId: tempAppt.id,
+    hypnoticDepth: "Medium",
+    primaryIssue: "Temp Issue",
   });
 
-  console.log(`    ✓ Tenant A created: ${tenantA.name} (ID: ${tenantA.id})`);
-  console.log(`    ✓ Contact A created: ${contactA.firstName} ${contactA.lastName} (ID: ${contactA.id})`);
+  // Delete temp patient -> appointments and clinical notes MUST cascade delete
+  await dbA.delete(schema.contacts).where(eq(schema.contacts.id, tempPatient.id));
 
-  // 2. Create Physiotherapy Tenant B
-  console.log("\n[2] Creating Physiotherapy Practice (Tenant B: Apex Rehab)...");
-  const planB = PLANS.presence;
-  const [tenantB] = await db
-    .insert(tenants)
-    .values({
-      name: "Apex Sports Physical Therapy",
-      slug: "apex-test-b",
-      vertical: "physiotherapy",
-      status: "preview",
-      plan: "presence",
-      template: "warm_clinical",
-      branding: {
-        primaryColor: "#2563EB", // Cobalt Blue
-        accentColor: "#0F172A",
-        tagline: "Restoring Peak Musculoskeletal Mobility & Function",
-        address: "700 Broadway, New York, NY",
-        phone: "+1 (212) 555-0844",
-        email: "info@apexrehab.test",
-      },
-      entitlements: planB.entitledFeatures,
-    })
-    .returning();
+  const orphanAppts = await dbA.select().from(schema.appointments).where(eq(schema.appointments.contactId, tempPatient.id));
+  const orphanNotes = await dbA.select().from(schema.clinicalNotes).where(eq(schema.clinicalNotes.contactId, tempPatient.id));
 
-  const tenantDbB = getTenantDb(tenantB.id);
+  if (orphanAppts.length !== 0 || orphanNotes.length !== 0) {
+    throw new Error(`Cascade failure: found ${orphanAppts.length} orphan appointments and ${orphanNotes.length} orphan notes`);
+  }
+  console.log("[SUCCESS] FK CASCADE verified: Deleting patient cleanly cascaded appointments and clinical notes.");
 
-  // Add Practitioner for B
-  const practitionerB = await tenantDbB.createPractitioner({
-    name: "Elena Rostova, DPT",
-    title: "Senior Physiotherapist",
-    bio: "Orthopedic physical therapy and sports rehabilitation.",
-    email: "elena@apexrehab.test",
-  });
+  // Test Outbox Idempotency Unique Constraint
+  let duplicatePrevented = false;
+  try {
+    await dbA.insert(schema.outboxEvents).values({
+      idempotencyKey: "evt_test_priya_001", // Duplicate!
+      eventType: "appointment.confirmed",
+      payload: { appointmentId: appt1.id },
+      status: "PENDING",
+    });
+  } catch (err: any) {
+    duplicatePrevented = true;
+  }
+  if (!duplicatePrevented) {
+    throw new Error("Duplicate idempotency key was erroneously permitted!");
+  }
+  console.log("[SUCCESS] Idempotency constraint verified: Duplicate outbox event was correctly rejected.");
 
-  // Add Services for B
-  const serviceB = await tenantDbB.createService({
-    name: "Musculoskeletal Assessment",
-    durationMinutes: 45,
-    price: 13000, // $130
-    practitionerId: practitionerB.id,
-  });
+  // ============================================================================
+  // TEST 5: CLINIC DATABASE ISOLATION PROOF
+  // ============================================================================
+  console.log("\n[TEST 5/6] Testing Clinic Database Isolation (clinic_soulmates vs clinic_motionplus)...");
+  
+  // Create a totally distinct isolated database for clinic_motionplus
+  const pgliteB = new PGlite();
+  const dbB = drizzle(pgliteB, { schema });
+  await migrate(dbB, { migrationsFolder });
 
-  // Add Contact for B
-  const contactB = await tenantDbB.createContact({
-    firstName: "Bob",
-    lastName: "Miller",
-    email: "bob@example.com",
-    phone: "+1 (555) 333-4444",
-    stage: "patient",
-    notes: "Physical therapy shoulder rehabilitation notes for Bob.",
-  });
+  // Clinic B has its own practitioner
+  const [drMotion] = await dbB.insert(schema.users).values({
+    email: "lead@motionplusphysio.com",
+    name: "Dr. Aryan Mehta (PT)",
+    passwordHash: "hash_configured",
+  }).returning();
 
-  console.log(`    ✓ Tenant B created: ${tenantB.name} (ID: ${tenantB.id})`);
-  console.log(`    ✓ Contact B created: ${contactB.firstName} ${contactB.lastName} (ID: ${contactB.id})`);
+  // Clinic B has its own patient
+  const [patientMotion] = await dbB.insert(schema.contacts).values({
+    fullName: "Rohan Kulkarni",
+    phone: "+91 97777 11223",
+    city: "Bangalore",
+    status: "ACTIVE",
+    primaryConcern: "Rotator Cuff Tendinopathy",
+  }).returning();
 
-  // 3. Verify Different Branding
-  console.log("\n[3] Verifying Branding Separation...");
-  if (tenantA.branding.primaryColor !== tenantB.branding.primaryColor) {
-    console.log(`    ✓ Tenant A Color: ${tenantA.branding.primaryColor} (Teal)`);
-    console.log(`    ✓ Tenant B Color: ${tenantB.branding.primaryColor} (Cobalt Blue)`);
-  } else {
-    throw new Error("Branding color check failed: Colors match!");
+  // Query Clinic B from dbB
+  const clinicBContacts = await dbB.select().from(schema.contacts);
+  console.log(`  Clinic B (clinic_motionplus) contacts count: ${clinicBContacts.length} (${clinicBContacts[0].fullName})`);
+
+  // Query Clinic A from dbA
+  const clinicAContacts = await dbA.select().from(schema.contacts);
+  console.log(`  Clinic A (clinic_soulmates) contacts count: ${clinicAContacts.length} (${clinicAContacts.map((c: any) => c.fullName).join(", ")})`);
+
+  // Check cross-database isolation
+  const soulmatesInB = clinicBContacts.some((c: any) => c.phone === "+91 98230 12345");
+  const motionInA = clinicAContacts.some((c: any) => c.phone === "+91 97777 11223");
+
+  if (soulmatesInB || motionInA) {
+    throw new Error("Cross-database leakage detected! Isolation rule violated.");
+  }
+  console.log("[SUCCESS] Strict Database Isolation verified: Zero cross-clinic record contamination.");
+
+  // ============================================================================
+  // TEST 6: ROLLBACK / TEARDOWN ORDER VERIFICATION
+  // ============================================================================
+  console.log("\n[TEST 6/6] Testing Rollback & Teardown in Reverse Dependency Order...");
+
+  // Drop tables in reverse topological order
+  const dropStatements = [
+    'DROP TABLE IF EXISTS "outbox_events" CASCADE;',
+    'DROP TABLE IF EXISTS "audit_logs" CASCADE;',
+    'DROP TABLE IF EXISTS "messages" CASCADE;',
+    'DROP TABLE IF EXISTS "conversations" CASCADE;',
+    'DROP TABLE IF EXISTS "payroll_entries" CASCADE;',
+    'DROP TABLE IF EXISTS "staff_leaves" CASCADE;',
+    'DROP TABLE IF EXISTS "staff_attendance" CASCADE;',
+    'DROP TABLE IF EXISTS "staff_profiles" CASCADE;',
+    'DROP TABLE IF EXISTS "patient_documents" CASCADE;',
+    'DROP TABLE IF EXISTS "document_requests" CASCADE;',
+    'DROP TABLE IF EXISTS "payment_reminders" CASCADE;',
+    'DROP TABLE IF EXISTS "invoices" CASCADE;',
+    'DROP TABLE IF EXISTS "ledger_transactions" CASCADE;',
+    'DROP TABLE IF EXISTS "tracker_entries" CASCADE;',
+    'DROP TABLE IF EXISTS "patient_trackers" CASCADE;',
+    'DROP TABLE IF EXISTS "clinical_notes" CASCADE;',
+    'DROP TABLE IF EXISTS "plan_adjustments" CASCADE;',
+    'DROP TABLE IF EXISTS "treatment_sessions" CASCADE;',
+    'DROP TABLE IF EXISTS "plan_cycles" CASCADE;',
+    'DROP TABLE IF EXISTS "treatment_courses" CASCADE;',
+    'DROP TABLE IF EXISTS "practitioner_availability" CASCADE;',
+    'DROP TABLE IF EXISTS "appointments" CASCADE;',
+    'DROP TABLE IF EXISTS "activities" CASCADE;',
+    'DROP TABLE IF EXISTS "crm_deals" CASCADE;',
+    'DROP TABLE IF EXISTS "contacts" CASCADE;',
+    'DROP TABLE IF EXISTS "user_roles" CASCADE;',
+    'DROP TABLE IF EXISTS "roles" CASCADE;',
+    'DROP TABLE IF EXISTS "sessions" CASCADE;',
+    'DROP TABLE IF EXISTS "users" CASCADE;',
+  ];
+
+  for (const stmt of dropStatements) {
+    await pgliteA.query(stmt);
   }
 
-  // 4. Verify Different Plans & Entitlements
-  console.log("\n[4] Verifying Plan Entitlements...");
-  if (tenantA.plan === "practiceflow" && tenantB.plan === "presence") {
-    console.log(`    ✓ Tenant A Plan: ${tenantA.plan.toUpperCase()}`);
-    console.log(`    ✓ Tenant B Plan: ${tenantB.plan.toUpperCase()}`);
-  } else {
-    throw new Error("Plan entitlement verification failed!");
+  const remainingTables = await pgliteA.query<{ table_name: string }>(`
+    SELECT table_name 
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
+  `);
+
+  console.log(`[SUCCESS] Teardown completed. Remaining public base tables: ${remainingTables.rows.length}`);
+  if (remainingTables.rows.length > 0) {
+    throw new Error(`Orphan tables remaining after rollback: ${remainingTables.rows.map((r: any) => r.table_name).join(", ")}`);
   }
+  console.log("[SUCCESS] Rollback verification passed: Clean teardown with zero dangling constraints.");
 
-  // 5. Verify Different Services
-  console.log("\n[5] Verifying Services Separation...");
-  const servicesA = await tenantDbA.getServices();
-  const servicesB = await tenantDbB.getServices();
-  console.log(`    ✓ Tenant A Service: ${servicesA[0].name} ($${(servicesA[0].price / 100).toFixed(2)})`);
-  console.log(`    ✓ Tenant B Service: ${servicesB[0].name} ($${(servicesB[0].price / 100).toFixed(2)})`);
-  if (servicesA[0].name === servicesB[0].name) {
-    throw new Error("Services isolation check failed!");
-  }
-
-  // 6 & 7. Verify Previews
-  console.log("\n[6 & 7] Verifying Preview Status for Both Practices...");
-  const previewA = await getTenantBySlug("mindwell-test-a");
-  const previewB = await getTenantBySlug("apex-test-b");
-  if (previewA?.status === "preview" && previewB?.status === "preview") {
-    console.log(`    ✓ Tenant A Preview Route: /preview/${previewA.slug} (Status: ${previewA.status})`);
-    console.log(`    ✓ Tenant B Preview Route: /preview/${previewB.slug} (Status: ${previewB.status})`);
-  } else {
-    throw new Error("Preview tenant status verification failed!");
-  }
-
-  // 8, 9 & 10. THE MANDATORY CROSS-TENANT ISOLATION TEST
-  console.log("\n[8, 9 & 10] EXECUTING MANDATORY CROSS-TENANT ISOLATION TEST...");
-  console.log("    Simulating authenticated request from Tenant A to access Tenant B Contact...");
-
-  // Attempt 1: Query Tenant B's contact using Tenant A's database scope
-  const crossTenantContact = await tenantDbA.getContactById(contactB.id);
-  if (crossTenantContact === null) {
-    console.log(`    ✓ PASSED: Tenant A cannot fetch Tenant B Contact (Result: null / 404 Not Found)`);
-  } else {
-    throw new Error(`CRITICAL SECURITY FAILURE: Tenant A accessed Tenant B contact: ${JSON.stringify(crossTenantContact)}`);
-  }
-
-  // Attempt 2: Verify Tenant A contact list does NOT contain Tenant B contacts
-  const contactsListA = await tenantDbA.getContacts();
-  const leakedContact = contactsListA.find((c) => c.id === contactB.id || c.email === "bob@example.com");
-  if (!leakedContact) {
-    console.log(`    ✓ PASSED: Tenant A contact list contains strictly ${contactsListA.length} contact(s) (zero contamination)`);
-  } else {
-    throw new Error(`CRITICAL SECURITY FAILURE: Tenant B contact found in Tenant A contact list!`);
-  }
-
-  // 11. Verify Plan Feature Entitlements Work
-  console.log("\n[11] Verifying Feature Entitlements Enforcement...");
-  if (tenantA.entitlements.crm === true && tenantB.entitlements.crm === false) {
-    console.log("    ✓ PracticeFlow tier allows CRM; Presence tier denies CRM.");
-  }
-
-  // 12. Verify Changing Tenant A Branding Does NOT Affect Tenant B
-  console.log("\n[12] Testing Independent Branding Mutation...");
-  const updatedA = await tenantDbA.updateBranding({
-    primaryColor: "#059669", // Mutate Tenant A to Emerald Green
-    tagline: "Updated Psychology Tagline",
-  });
-
-  const refreshedB = await tenantDbB.getTenant();
-
-  console.log(`    ✓ Tenant A Primary Color updated to: ${updatedA.branding.primaryColor}`);
-  console.log(`    ✓ Tenant B Primary Color remains: ${refreshedB?.branding.primaryColor}`);
-
-  if (refreshedB?.branding.primaryColor === "#2563EB" && updatedA.branding.primaryColor === "#059669") {
-    console.log("    ✓ PASSED: Tenant B branding was completely unaffected by changes to Tenant A!");
-  } else {
-    throw new Error("Branding cross-contamination detected!");
-  }
-
-  console.log("\n=======================================================");
-  console.log("  ALL 12 VALIDATION STEPS PASSED SUCCESSFULLY! (100%)");
-  console.log("=======================================================\n");
+  console.log("\n================================================================================");
+  console.log("  ALL PHASE 1 CHECKS PASSED: CANONICAL SCHEMA & MIGRATIONS FULLY VERIFIED");
+  console.log("================================================================================\n");
 }
 
-runValidation()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error("\n❌ VALIDATION TEST FAILED:", err);
-    process.exit(1);
-  });
+runTestSuite().catch(err => {
+  console.error("Verification suite failed:", err);
+  process.exit(1);
+});

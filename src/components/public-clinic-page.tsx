@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Tenant, Practitioner, Service } from "@/lib/db/schema";
 import { getVerticalConfig } from "@/lib/verticals";
 import {
   Calendar,
@@ -18,10 +17,42 @@ import {
   Sparkles,
 } from "lucide-react";
 
+export interface TenantConfig {
+  id: string;
+  name: string;
+  vertical: string;
+  plan?: string;
+  branding: {
+    primaryColor?: string;
+    accentColor?: string;
+    tagline?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+  };
+}
+
+export interface PractitionerItem {
+  id: string;
+  name: string;
+  title: string;
+  bio?: string;
+  email: string;
+}
+
+export interface ServiceItem {
+  id: string;
+  name: string;
+  description?: string;
+  durationMinutes: number;
+  price: number;
+  practitionerId?: string;
+}
+
 interface PublicClinicPageProps {
-  tenant: Tenant;
-  practitioners: Practitioner[];
-  services: Service[];
+  tenant: TenantConfig;
+  practitioners: PractitionerItem[];
+  services: ServiceItem[];
   isPreview?: boolean;
 }
 
@@ -223,7 +254,7 @@ export function PublicClinicPage({
                 </li>
               </ul>
               <div className="bg-slate-50 rounded-lg p-3 text-[11px] text-slate-500 border border-slate-100">
-                Operating under <strong>{tenant.plan.toUpperCase()}</strong> practice configuration with verified clinical protocols.
+                Operating under <strong>{(tenant.plan || "standard").toUpperCase()}</strong> practice configuration with verified clinical protocols.
               </div>
             </div>
           </div>
