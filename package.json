@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test:isolation": "tsx scripts/test-isolation.ts",
     "test:auth": "tsx scripts/test-auth.ts",
+    "test:booking": "tsx scripts/test-booking.ts",
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
