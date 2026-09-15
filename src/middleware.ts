@@ -22,7 +22,14 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  // Search Engine Safety for Staging Environments
+  if (process.env.APP_ENV === "staging" || process.env.NEXT_PUBLIC_APP_ENV === "staging") {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+
+  return response;
 }
 
 export const config = {

@@ -10,6 +10,7 @@
     "test:isolation": "tsx scripts/test-isolation.ts",
     "test:auth": "tsx scripts/test-auth.ts",
     "test:booking": "tsx scripts/test-booking.ts",
+    "test:real-postgres": "tsx scripts/test-real-postgres.ts",
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
@@ -29,10 +30,12 @@
     "@types/pg": "^8.11.10",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/ssh2": "^1.15.6",
     "autoprefixer": "^10.4.20",
     "dotenv": "^16.4.5",
     "drizzle-kit": "^0.28.1",
     "postcss": "^8.4.49",
+    "ssh2": "^1.17.0",
     "tailwindcss": "^3.4.15",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"

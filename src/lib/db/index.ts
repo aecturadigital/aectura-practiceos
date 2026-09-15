@@ -18,11 +18,16 @@ export async function getDb() {
   }
 
   const databaseUrl = process.env.DATABASE_URL;
+  const directDatabaseUrl = process.env.DIRECT_DATABASE_URL || databaseUrl;
+  const isSslDisabled = 
+    databaseUrl?.includes("sslmode=disable") || 
+    process.env.DATABASE_SSL === "false" ||
+    process.env.PGSSLMODE === "disable";
 
   if (databaseUrl && !databaseUrl.includes("pglite")) {
     const pool = new Pool({
       connectionString: databaseUrl,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      ssl: isSslDisabled ? false : (process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false),
     });
     rawClient = pool;
     dbInstance = drizzlePg(pool, { schema });
@@ -38,22 +43,36 @@ export async function getDb() {
   }
 
   if (!migrationsRan) {
-    const migrationsFolder = path.join(process.cwd(), "drizzle", "migrations");
-    if (fs.existsSync(migrationsFolder)) {
-      try {
-        if (databaseUrl && !databaseUrl.includes("pglite")) {
-          await migratePg(dbInstance, { migrationsFolder });
-        } else {
-          await migratePglite(dbInstance, { migrationsFolder });
-        }
-      } catch (err: any) {
-        // Safe continuation if tables or schema already present
-        if (!err?.message?.includes("already exists")) {
-          console.warn("Migration notice:", err?.message || err);
+    if (process.env.SKIP_AUTO_MIGRATIONS === "true") {
+      migrationsRan = true;
+    } else {
+      const migrationsFolder = path.join(process.cwd(), "drizzle", "migrations");
+      if (fs.existsSync(migrationsFolder)) {
+        try {
+          if (databaseUrl && !databaseUrl.includes("pglite")) {
+            const migrationPool = directDatabaseUrl !== databaseUrl
+              ? new Pool({ 
+                  connectionString: directDatabaseUrl, 
+                  ssl: isSslDisabled ? false : (process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false) 
+                })
+              : rawClient;
+            const migrationDb = directDatabaseUrl !== databaseUrl ? drizzlePg(migrationPool, { schema }) : dbInstance;
+            await migratePg(migrationDb, { migrationsFolder });
+            if (directDatabaseUrl !== databaseUrl) {
+              await migrationPool.end();
+            }
+          } else {
+            await migratePglite(dbInstance, { migrationsFolder });
+          }
+        } catch (err: any) {
+          // Safe continuation if tables or schema already present
+          if (!err?.message?.includes("already exists")) {
+            console.warn("Migration notice:", err?.message || err);
+          }
         }
       }
+      migrationsRan = true;
     }
-    migrationsRan = true;
   }
 
   return dbInstance;

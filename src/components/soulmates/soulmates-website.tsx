@@ -72,7 +72,7 @@ export function SoulmatesWebsite() {
   const fetchSlotsForDate = async (dateStr: string) => {
     setIsLoadingSlots(true);
     try {
-      const res = await fetch(`/api/public/availability?date=${dateStr}`);
+      const res = await fetch(`/api/public/availability?date=${dateStr}&serviceId=${selectedTherapy?.id || ""}`);
       const data = await res.json();
       if (res.ok && Array.isArray(data.availableSlots)) {
         setAvailableSlots(data.availableSlots);

@@ -9,24 +9,41 @@ import {
   users,
   userRoles,
 } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
-import { getClinicConfig } from "@/config/clinic.config";
+import { eq, and, notInArray } from "drizzle-orm";
+import {
+  getClinicConfig,
+  getClinicTimezone,
+  resolveClinicPractitioner,
+} from "@/config/clinic.config";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 
 export const dynamic = "force-dynamic";
+
+const TERMINAL_OR_UNBLOCKING_STATUSES = [
+  "CANCELLED",
+  "RESCHEDULED",
+  "NO_SHOW",
+  "DECLINED_IN_ADVANCE",
+];
 
 const bookingSchema = z.object({
   fullName: z.string().trim().min(2, "Full name must be at least 2 characters").max(100),
   phone: z.string().trim().min(8, "Phone number is too short").max(20),
   email: z.string().trim().email("Invalid email address").optional().or(z.literal("")),
   serviceId: z.string().min(1, "Service ID is required"),
+  practitionerId: z.string().optional(),
   mode: z.enum(["In-Clinic (Wanowrie, Pune)", "Online Secure Telehealth"]).default("In-Clinic (Wanowrie, Pune)"),
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
   startTime: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
   primaryConcern: z.string().trim().max(1000).optional(),
   hp_website: z.string().optional(), // Honeypot trap
 });
+
+function parseTimeToMinutes(timeStr: string): number {
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  return hours * 60 + minutes;
+}
 
 function sanitizePhone(rawPhone: string): string {
   const digits = rawPhone.replace(/\D/g, "");
@@ -68,6 +85,7 @@ export async function POST(req: NextRequest) {
       phone,
       email,
       serviceId,
+      practitionerId: requestedPractitionerId,
       mode,
       scheduledDate,
       startTime,
@@ -77,20 +95,59 @@ export async function POST(req: NextRequest) {
 
     // 2. Anti-Spam Honeypot Verification
     if (hp_website && hp_website.length > 0) {
-      // Silently reject bots that populate the hidden honeypot
       return NextResponse.json({ error: "Invalid submission" }, { status: 400 });
     }
 
-    // 3. Past-Date Rejection
-    const today = new Date().toISOString().split("T")[0];
-    if (scheduledDate < today) {
+    const clinicConfig = getClinicConfig();
+    const clinicTz = getClinicTimezone();
+
+    // 3. Timezone, Past-Date & Advance Notice Rules (P4)
+    const now = new Date();
+    const dateInClinic = new Intl.DateTimeFormat("en-CA", {
+      timeZone: clinicTz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(now);
+
+    if (scheduledDate < dateInClinic) {
       return NextResponse.json(
         { error: "Appointments cannot be booked in the past." },
         { status: 400 }
       );
     }
 
-    const clinicConfig = getClinicConfig();
+    const maxDate = new Date(now.getTime() + clinicConfig.bookingSettings.maxAdvanceDays * 24 * 60 * 60 * 1000);
+    const maxDateInClinic = new Intl.DateTimeFormat("en-CA", {
+      timeZone: clinicTz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(maxDate);
+
+    if (scheduledDate > maxDateInClinic) {
+      return NextResponse.json(
+        { error: `Bookings can only be scheduled up to ${clinicConfig.bookingSettings.maxAdvanceDays} days in advance.` },
+        { status: 400 }
+      );
+    }
+
+    if (scheduledDate === dateInClinic) {
+      const timeInClinic = new Intl.DateTimeFormat("en-GB", {
+        timeZone: clinicTz,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).format(now);
+      const currentClinicMin = parseTimeToMinutes(timeInClinic);
+      const slotStartMin = parseTimeToMinutes(startTime);
+      if (slotStartMin < currentClinicMin + clinicConfig.bookingSettings.advanceNoticeHours * 60) {
+        return NextResponse.json(
+          { error: `Appointments must be booked at least ${clinicConfig.bookingSettings.advanceNoticeHours} hours in advance.` },
+          { status: 400 }
+        );
+      }
+    }
 
     // 4. Server-Side Service & Price Resolution (Prevents arbitrary client price injection)
     const configuredService = clinicConfig.services.find((s) => s.id === serviceId);
@@ -106,8 +163,8 @@ export async function POST(req: NextRequest) {
     const durationMinutes = configuredService.durationMinutes;
 
     // 5. Working Hours & Day of Week Validation
-    const targetDate = new Date(`${scheduledDate}T12:00:00Z`);
-    const dayOfWeek = targetDate.getUTCDay();
+    const targetDate = new Date(`${scheduledDate}T12:00:00+05:30`);
+    const dayOfWeek = targetDate.getDay();
     if (!clinicConfig.workingHours.days.includes(dayOfWeek)) {
       return NextResponse.json(
         { error: "The clinic is closed on the selected day of the week." },
@@ -117,29 +174,91 @@ export async function POST(req: NextRequest) {
 
     const db = await getDb();
 
-    // 6. Resolve Authorized Clinic Practitioner (Prevents client-controlled practitioner impersonation)
-    const [leadPractitioner] = await db
-      .select({ id: users.id, name: users.name })
-      .from(users)
-      .innerJoin(userRoles, eq(users.id, userRoles.userId))
-      .where(and(eq(userRoles.roleId, "PRACTITIONER"), eq(users.isActive, true)))
-      .limit(1);
+    // 6. Strict Practitioner Resolution (P3)
+    let practitionerConfig = resolveClinicPractitioner(clinicConfig, requestedPractitionerId);
+    if (requestedPractitionerId && !practitionerConfig) {
+      return NextResponse.json(
+        { error: "Invalid or unauthorized practitioner specified." },
+        { status: 400 }
+      );
+    }
 
-    if (!leadPractitioner) {
+    let practitionerId: string | null = null;
+    let practitionerName = practitionerConfig?.name || "Col Umakant Saxena";
+
+    if (requestedPractitionerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedPractitionerId)) {
+      const [matchedUser] = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(eq(users.id, requestedPractitionerId))
+        .limit(1);
+      if (matchedUser) {
+        practitionerId = matchedUser.id;
+        practitionerName = matchedUser.name;
+      }
+    }
+
+    if (!practitionerId) {
+      const [leadPractitioner] = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .innerJoin(userRoles, eq(users.id, userRoles.userId))
+        .where(and(eq(userRoles.roleId, "PRACTITIONER"), eq(users.isActive, true)))
+        .limit(1);
+
+      if (leadPractitioner) {
+        practitionerId = leadPractitioner.id;
+        practitionerName = leadPractitioner.name;
+      }
+    }
+
+    if (!practitionerId) {
       return NextResponse.json(
         { error: "No active clinical practitioner is configured to receive bookings." },
         { status: 503 }
       );
     }
 
-    const practitionerId = leadPractitioner.id;
-    const practitionerName = leadPractitioner.name;
     const formattedPhone = sanitizePhone(phone);
     const endTime = calculateEndTime(startTime, durationMinutes);
 
+    // Precise timestamps for PostgreSQL range exclusion constraint (P2)
+    const startAt = new Date(`${scheduledDate}T${startTime}:00+05:30`);
+    const endAt = new Date(`${scheduledDate}T${endTime}:00+05:30`);
+
     // 7. Atomic Database Transaction
-    // Wraps Contact upsert, Deal, Appointment, Activity, and Outbox event into a single ACID unit.
     const bookingResult = await db.transaction(async (tx: any) => {
+      // Pre-check for overlapping active appointments on practitioner
+      const candidateStartMin = parseTimeToMinutes(startTime);
+      const candidateEndMin = parseTimeToMinutes(endTime);
+
+      const existingAppts = await tx
+        .select({
+          startTime: appointments.startTime,
+          endTime: appointments.endTime,
+        })
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.practitionerId, practitionerId!),
+            eq(appointments.scheduledDate, scheduledDate),
+            notInArray(appointments.status, TERMINAL_OR_UNBLOCKING_STATUSES)
+          )
+        );
+
+      const hasOverlap = existingAppts.some((appt: { startTime: string; endTime: string }) => {
+        const apptStart = parseTimeToMinutes(appt.startTime);
+        const apptEnd = parseTimeToMinutes(appt.endTime);
+        return Math.max(candidateStartMin, apptStart) < Math.min(candidateEndMin, apptEnd);
+      });
+
+      if (hasOverlap) {
+        const collisionErr: any = new Error("OVERLAP_COLLISION");
+        collisionErr.code = "23P01";
+        collisionErr.constraint = "excl_practitioner_no_overlap";
+        throw collisionErr;
+      }
+
       // A. Contact Lookup / Deduplication by phone
       let [contact] = await tx
         .select()
@@ -201,7 +320,7 @@ export async function POST(req: NextRequest) {
         })
         .returning();
 
-      // C. Appointment Creation (Semantic initial state: SCHEDULED)
+      // C. Appointment Creation (Semantic initial state: SCHEDULED, startAt, endAt for GiST exclusion)
       const [appointment] = await tx
         .insert(appointments)
         .values({
@@ -213,6 +332,8 @@ export async function POST(req: NextRequest) {
           scheduledDate,
           startTime,
           endTime,
+          startAt,
+          endAt,
           status: clinicConfig.bookingSettings.initialStatus, // 'SCHEDULED'
           paymentStatus: "PENDING",
           amount: servicePrice,
@@ -289,11 +410,16 @@ export async function POST(req: NextRequest) {
       message: "Your appointment has been scheduled. Our front desk will reach out to confirm your slot.",
     });
   } catch (error: any) {
-    // 8. Concurrency Collision Handling (PostgreSQL unique index violation)
-    if (error?.code === "23505" && error?.constraint === "uniq_practitioner_slot") {
+    // 8. Overlap & Concurrency Collision Handling (PostgreSQL GiST exclusion constraint or application check)
+    if (
+      error?.code === "23P01" ||
+      error?.code === "23505" ||
+      error?.message?.includes("excl_practitioner_no_overlap") ||
+      error?.message === "OVERLAP_COLLISION"
+    ) {
       return NextResponse.json(
         {
-          error: "This appointment slot was just booked by another patient. Please choose an alternative time slot.",
+          error: "This appointment slot or overlapping duration was just booked by another patient. Please choose an alternative time slot.",
         },
         { status: 409 }
       );

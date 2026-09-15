@@ -34,9 +34,14 @@ function sanitizePhone(rawPhone: string): string {
   return rawPhone.trim();
 }
 
-async function calculateAvailableSlots(db: any, dateStr: string, practitionerId: string) {
-  const targetDate = new Date(`${dateStr}T12:00:00Z`);
-  const dayOfWeek = targetDate.getUTCDay();
+async function calculateAvailableSlots(
+  db: any,
+  dateStr: string,
+  practitionerId: string,
+  serviceDurationMinutes: number = 60
+) {
+  const targetDate = new Date(`${dateStr}T12:00:00+05:30`);
+  const dayOfWeek = targetDate.getDay();
 
   const [availRule] = await db
     .select()
@@ -54,31 +59,49 @@ async function calculateAvailableSlots(db: any, dateStr: string, practitionerId:
     return [];
   }
 
+  const TERMINAL_OR_UNBLOCKING_STATUSES = [
+    "CANCELLED",
+    "RESCHEDULED",
+    "NO_SHOW",
+    "DECLINED_IN_ADVANCE",
+  ];
+
   const bookedAppointments = await db
-    .select({ startTime: schema.appointments.startTime })
+    .select({
+      startTime: schema.appointments.startTime,
+      endTime: schema.appointments.endTime,
+      status: schema.appointments.status,
+    })
     .from(schema.appointments)
     .where(
       and(
         eq(schema.appointments.scheduledDate, dateStr),
-        eq(schema.appointments.practitionerId, practitionerId),
-        ne(schema.appointments.status, "CANCELLED")
+        eq(schema.appointments.practitionerId, practitionerId)
       )
     );
 
-  const bookedTimes = new Set(bookedAppointments.map((a: any) => a.startTime));
+  const activeAppointments = bookedAppointments.filter(
+    (a: any) => !TERMINAL_OR_UNBLOCKING_STATUSES.includes(a.status)
+  );
+
   const dayStartMin = parseTimeToMinutes(availRule.startTime);
   const dayEndMin = parseTimeToMinutes(availRule.endTime);
-  const slotDuration = availRule.slotDurationMinutes || 60;
   const buffer = availRule.bufferMinutes || 15;
-  const step = slotDuration + buffer;
+  const step = 60 + buffer;
 
   const availableSlots: string[] = [];
   let currentMin = dayStartMin;
 
-  while (currentMin + slotDuration <= dayEndMin) {
-    const slotTimeStr = formatMinutesToTime(currentMin);
-    if (!bookedTimes.has(slotTimeStr)) {
-      availableSlots.push(slotTimeStr);
+  while (currentMin + serviceDurationMinutes <= dayEndMin) {
+    const slotEndMin = currentMin + serviceDurationMinutes;
+    const hasOverlap = activeAppointments.some((appt: any) => {
+      const apptStart = parseTimeToMinutes(appt.startTime);
+      const apptEnd = parseTimeToMinutes(appt.endTime);
+      return Math.max(currentMin, apptStart) < Math.min(slotEndMin, apptEnd);
+    });
+
+    if (!hasOverlap) {
+      availableSlots.push(formatMinutesToTime(currentMin));
     }
     currentMin += step;
   }
@@ -195,6 +218,44 @@ async function executeBookingTransaction(
       })
       .returning();
 
+    // Overlap validation (matching route.ts)
+    const existingAppts = await tx
+      .select({
+        startTime: schema.appointments.startTime,
+        endTime: schema.appointments.endTime,
+        status: schema.appointments.status,
+      })
+      .from(schema.appointments)
+      .where(
+        and(
+          eq(schema.appointments.practitionerId, practitioner.id),
+          eq(schema.appointments.scheduledDate, input.scheduledDate)
+        )
+      );
+
+    const activeAppts = existingAppts.filter(
+      (a: any) => !["CANCELLED", "RESCHEDULED", "NO_SHOW", "DECLINED_IN_ADVANCE"].includes(a.status)
+    );
+
+    const candidateStartMin = parseTimeToMinutes(input.startTime);
+    const candidateEndMin = parseTimeToMinutes(endTime);
+
+    const hasOverlap = activeAppts.some((appt: any) => {
+      const apptStart = parseTimeToMinutes(appt.startTime);
+      const apptEnd = parseTimeToMinutes(appt.endTime);
+      return Math.max(candidateStartMin, apptStart) < Math.min(candidateEndMin, apptEnd);
+    });
+
+    if (hasOverlap) {
+      const collisionErr: any = new Error("OVERLAP_COLLISION: This appointment slot or overlapping duration was just booked.");
+      collisionErr.code = "23P01";
+      collisionErr.constraint = "excl_practitioner_no_overlap";
+      throw collisionErr;
+    }
+
+    const startAt = new Date(`${input.scheduledDate}T${input.startTime}:00+05:30`);
+    const endAt = new Date(`${input.scheduledDate}T${endTime}:00+05:30`);
+
     // 3. Appointment (Canonical status: SCHEDULED)
     const [appointment] = await tx
       .insert(schema.appointments)
@@ -207,6 +268,8 @@ async function executeBookingTransaction(
         scheduledDate: input.scheduledDate,
         startTime: input.startTime,
         endTime,
+        startAt,
+        endAt,
         status: clinicConfig.bookingSettings.initialStatus, // "SCHEDULED"
         paymentStatus: "PENDING",
         amount: servicePrice,
@@ -457,9 +520,9 @@ async function runPhase3ACorrectiveTests() {
   console.log(`  ✓ Audit trail updated: archiveReason='${unarchivedContact.archiveReason}'\n`);
 
   // ---------------------------------------------------------------------------
-  // TEST 6: Concurrent Double-Booking Collision Prevention (uniq_practitioner_slot)
+  // TEST 6: Concurrent Double-Booking & Range Overlap Prevention
   // ---------------------------------------------------------------------------
-  console.log("[TEST 6/8] Testing Concurrent Double-Booking Physical DB Constraint ('uniq_practitioner_slot')...");
+  console.log("[TEST 6/8] Testing Concurrent Double-Booking & Overlap Protection (excl_practitioner_no_overlap)...");
   // Attempt to book the exact same slot that booking1 holds (2026-09-22 at 10:30 with practitioner.id)
   let collisionCaught = false;
   try {
@@ -474,23 +537,25 @@ async function runPhase3ACorrectiveTests() {
     });
   } catch (err: any) {
     collisionCaught = true;
-    const isPgUniqueViolation =
+    const isOverlapViolation =
+      err?.code === "23P01" ||
       err?.code === "23505" ||
-      err?.message?.includes("uniq_practitioner_slot") ||
-      err?.message?.includes("unique constraint") ||
-      err?.detail?.includes("practitioner_id");
+      err?.message?.includes("excl_practitioner_no_overlap") ||
+      err?.message?.includes("OVERLAP_COLLISION") ||
+      err?.constraint === "excl_practitioner_no_overlap" ||
+      err?.constraint === "uniq_practitioner_slot";
 
-    if (!isPgUniqueViolation) {
+    if (!isOverlapViolation) {
       throw new Error(`Unexpected error on collision: ${err?.message || err}`);
     }
-    console.log(`  ✓ Physical DB Unique Index 'uniq_practitioner_slot' triggered successfully.`);
-    console.log(`  ✓ Error details: code=${err?.code || '23505'} constraint='uniq_practitioner_slot'`);
+    console.log(`  ✓ Range Overlap / Concurrency protection triggered successfully.`);
+    console.log(`  ✓ Error details: code=${err?.code || '23P01'} constraint='${err?.constraint || 'excl_practitioner_no_overlap'}'`);
   }
 
   if (!collisionCaught) {
     throw new Error("CRITICAL CONCURRENCY FAILURE: Duplicate slot booking was allowed by the database!");
   }
-  console.log("  ✓ Physical concurrency lock verified: Race conditions are rejected by ACID DB constraint.\n");
+  console.log("  ✓ Range overlap & concurrency lock verified: Overlapping slots are rejected.\n");
 
   // ---------------------------------------------------------------------------
   // TEST 7: Atomic Database Transaction Rollback Proof

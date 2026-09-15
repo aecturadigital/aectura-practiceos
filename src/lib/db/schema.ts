@@ -114,7 +114,7 @@ export const contacts = pgTable(
     lastName: text("last_name"),
     email: text("email"),
     phone: text("phone").notNull(),
-    city: text("city").notNull().default("Pune"),
+    city: text("city"),
     gender: text("gender"),
     age: integer("age"),
     status: text("status").notNull().default("LEAD"), // 'LEAD', 'ACTIVE', 'COMPLETED', 'INACTIVE', 'ARCHIVED'
@@ -205,15 +205,17 @@ export const appointments = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     practitionerId: uuid("practitioner_id").references(() => users.id, { onDelete: "set null" }),
-    practitionerName: text("practitioner_name").notNull().default("Col Umakant Saxena"),
+    practitionerName: text("practitioner_name").notNull(),
     therapyType: text("therapy_type").notNull(),
-    mode: text("mode").notNull().default("In-Clinic (Wanowrie, Pune)"),
+    mode: text("mode").notNull().default("IN_CLINIC"),
     scheduledDate: date("scheduled_date").notNull(),
     startTime: text("start_time").notNull(),
     endTime: text("end_time").notNull(),
+    startAt: timestamp("start_at", { withTimezone: true }),
+    endAt: timestamp("end_at", { withTimezone: true }),
     status: text("status").notNull().default("SCHEDULED"), // 'SCHEDULED', 'CONFIRMED', 'ARRIVED', 'ATTENDED', 'DECLINED_IN_ADVANCE', 'NO_SHOW', 'CANCELLED'
     paymentStatus: text("payment_status").notNull().default("PENDING"), // 'PENDING', 'PAID_AT_CLINIC', 'PAID_ONLINE', 'WAIVED'
-    amount: numeric("amount", { precision: 10, scale: 2 }).notNull().default("2500.00"),
+    amount: numeric("amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
     cancellationReason: text("cancellation_reason"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -223,7 +225,8 @@ export const appointments = pgTable(
     index("idx_appointments_date").on(table.scheduledDate),
     index("idx_appointments_contact_id").on(table.contactId),
     index("idx_appointments_status").on(table.status),
-    uniqueIndex("uniq_practitioner_slot").on(table.practitionerId, table.scheduledDate, table.startTime),
+    index("idx_appointments_practitioner_range").on(table.practitionerId, table.startAt, table.endAt),
+    index("idx_appointments_range").on(table.startAt, table.endAt),
   ]
 );
 
