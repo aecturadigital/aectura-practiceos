@@ -15,6 +15,13 @@
       "when": 1789425590980,
       "tag": "0001_dry_apocalypse",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789455190579,
+      "tag": "0002_charming_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }

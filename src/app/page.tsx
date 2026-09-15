@@ -9,7 +9,13 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const view = searchParams.get("view");
 
-  if (view === "platform") {
+  // Security & tenant isolation: Gate internal B2B platform presentation behind development/internal config
+  // Public production traffic to the clinic domain will always serve the clinic's patient-facing website
+  const allowPlatformLanding =
+    process.env.NODE_ENV === "development" ||
+    process.env.NEXT_PUBLIC_ENABLE_PLATFORM_LANDING === "true";
+
+  if (view === "platform" && allowPlatformLanding) {
     return <AecturaPlatformLanding />;
   }
 

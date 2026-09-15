@@ -223,6 +223,7 @@ export const appointments = pgTable(
     index("idx_appointments_date").on(table.scheduledDate),
     index("idx_appointments_contact_id").on(table.contactId),
     index("idx_appointments_status").on(table.status),
+    uniqueIndex("uniq_practitioner_slot").on(table.practitionerId, table.scheduledDate, table.startTime),
   ]
 );
 

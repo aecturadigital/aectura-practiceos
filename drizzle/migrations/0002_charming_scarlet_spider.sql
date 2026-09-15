@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "uniq_practitioner_slot" ON "appointments" USING btree ("practitioner_id","scheduled_date","start_time");

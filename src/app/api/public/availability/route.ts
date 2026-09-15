@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { practitionerAvailability, appointments, users, userRoles } from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
+import { getClinicConfig } from "@/config/clinic.config";
 
 export const dynamic = "force-dynamic";
 
@@ -74,10 +75,18 @@ export async function GET(req: NextRequest) {
         );
     }
 
-    const [availRule] = await availabilityQuery.limit(1);
+    let availRule = await availabilityQuery.limit(1).then((r: any[]) => r[0]);
 
-    // If practitioner has no availability configured for this day (e.g. Sunday)
-    if (!availRule) {
+    const clinicConfig = getClinicConfig();
+
+    // Fallback to clinicConfig working hours if database record not populated
+    let dayStart = availRule?.startTime || clinicConfig.workingHours.startTime;
+    let dayEnd = availRule?.endTime || clinicConfig.workingHours.endTime;
+    let slotDuration = availRule?.slotDurationMinutes || clinicConfig.workingHours.slotDurationMinutes || 60;
+    let buffer = availRule?.bufferMinutes || clinicConfig.workingHours.bufferMinutes || 15;
+
+    // If day is not in configured working days (e.g. Sunday)
+    if (!availRule && !clinicConfig.workingHours.days.includes(dayOfWeek)) {
       return NextResponse.json({
         date: dateStr,
         availableSlots: [],
@@ -106,10 +115,8 @@ export async function GET(req: NextRequest) {
     const bookedTimes = new Set(bookedAppointments.map((a: { startTime: string }) => a.startTime));
 
     // 4. Generate discrete time slots between startTime and endTime
-    const dayStartMin = parseTimeToMinutes(availRule.startTime);
-    const dayEndMin = parseTimeToMinutes(availRule.endTime);
-    const slotDuration = availRule.slotDurationMinutes || 60;
-    const buffer = availRule.bufferMinutes || 15;
+    const dayStartMin = parseTimeToMinutes(dayStart);
+    const dayEndMin = parseTimeToMinutes(dayEnd);
     const step = slotDuration + buffer;
 
     const availableSlots: string[] = [];
@@ -126,7 +133,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       date: dateStr,
-      practitionerId: availRule.practitionerId,
+      practitionerId: practitionerId || availRule?.practitionerId,
       availableSlots,
       slotDurationMinutes: slotDuration,
       bufferMinutes: buffer,

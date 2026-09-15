@@ -27,90 +27,19 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-interface TherapyProgram {
-  id: string;
-  name: string;
-  category: string;
-  duration: string;
-  price: string;
-  description: string;
-  suitableFor: string[];
-  badge?: string;
-}
-
-const THERAPIES: TherapyProgram[] = [
-  {
-    id: "hypno-consult",
-    name: "Clinical Hypnotherapy Assessment",
-    category: "Individual Therapy",
-    duration: "60 mins",
-    price: "₹2,500",
-    badge: "Most Popular",
-    description:
-      "Comprehensive diagnostic intake and initial trance induction. Targets panic triggers, emotional distress, and subconscious blocks.",
-    suitableFor: ["Acute Anxiety", "Panic Episodes", "Psychosomatic Symptoms", "Stress Management"],
-  },
-  {
-    id: "anxiety-course",
-    name: "3-Session Anxiety & Somatic Pack",
-    category: "Structured Treatment",
-    duration: "3 × 60 mins",
-    price: "₹7,500",
-    badge: "High Efficacy",
-    description:
-      "Evidence-based 3-stage hypnotherapy protocol. Deep hypnotic desensitization of unconscious triggers followed by permanent emotional anchoring.",
-    suitableFor: ["Generalized Anxiety Disorder (GAD)", "Performance Anxiety", "Chronic Overthinking", "Burnout"],
-  },
-  {
-    id: "plr-intensive",
-    name: "Past Life Regression (PLR) Session",
-    category: "Transpersonal Hypnotherapy",
-    duration: "120 mins",
-    price: "₹5,000",
-    badge: "Deep Trance",
-    description:
-      "Deep somnambulistic trance exploration designed to resolve inexplicable irrational phobias, recurring relationship patterns, and unexplainable somatic pains.",
-    suitableFor: ["Inexplicable Phobias", "Karmic Traumas", "Spiritual Exploration", "Relational Loops"],
-  },
-  {
-    id: "insomnia-protocol",
-    name: "Sleep Architecture Hypnotherapy",
-    category: "Neurological Protocol",
-    duration: "60 mins",
-    price: "₹2,500",
-    description:
-      "Reprograms the autonomic nervous system to accelerate sleep onset, eliminate midnight awakenings, and establish restorative delta wave sleep.",
-    suitableFor: ["Chronic Insomnia", "Racing Thoughts at Bedtime", "Sleep Anxiety", "Non-Restorative Sleep"],
-  },
-  {
-    id: "phobia-desensitize",
-    name: "Rapid Phobia Desensitization",
-    category: "Cognitive Trance",
-    duration: "60 mins",
-    price: "₹2,500",
-    description:
-      "Focused neuro-linguistic and trance dissociation protocol to permanently disarm acute phobic triggers without re-traumatization.",
-    suitableFor: ["Fear of Heights / Flying", "Claustrophobia", "Public Speaking Panic", "Medical Phobias"],
-  },
-  {
-    id: "habit-cessation",
-    name: "Habit & Smoking Cessation",
-    category: "Behavioral Transformation",
-    duration: "90 mins",
-    price: "₹3,500",
-    description:
-      "Rewires oral fixation and compulsive cravings by replacing dopamine anticipation pathways at the subconscious identity level.",
-    suitableFor: ["Nicotine Addiction", "Emotional Overeating", "Compulsive Habits", "Stress-Driven Cravings"],
-  },
-];
+import { getClinicConfig, ClinicServiceConfig } from "@/config/clinic.config";
 
 export function SoulmatesWebsite() {
+  const clinicConfig = getClinicConfig();
+  const therapies = clinicConfig.services;
+  const leadDoctor = clinicConfig.practitioners[0];
+
   // Modal & Funnel State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
 
   // Booking Form State
-  const [selectedTherapy, setSelectedTherapy] = useState<TherapyProgram>(THERAPIES[0]);
+  const [selectedTherapy, setSelectedTherapy] = useState<ClinicServiceConfig>(therapies[0]);
   const [selectedMode, setSelectedMode] = useState<"In-Clinic (Wanowrie, Pune)" | "Online Secure Telehealth">(
     "In-Clinic (Wanowrie, Pune)"
   );
@@ -161,7 +90,7 @@ export function SoulmatesWebsite() {
     }
   };
 
-  const handleOpenBooking = (therapy?: TherapyProgram) => {
+  const handleOpenBooking = (therapy?: ClinicServiceConfig) => {
     if (therapy) setSelectedTherapy(therapy);
     setBookingStep(1);
     setConfirmationData(null);
@@ -184,12 +113,11 @@ export function SoulmatesWebsite() {
         fullName: patientName.trim(),
         phone: patientPhone.trim(),
         email: patientEmail.trim() || undefined,
-        therapyType: selectedTherapy.name,
+        serviceId: selectedTherapy.id,
         mode: selectedMode,
         scheduledDate: selectedDate,
         startTime: selectedTimeSlot || "11:00",
-        primaryConcern: primaryConcern.trim() || "Initial assessment request",
-        amount: selectedTherapy.price.replace(/[^\d.]/g, ""),
+        primaryConcern: primaryConcern.trim() || undefined,
       };
 
       const res = await fetch("/api/public/booking", {
@@ -447,7 +375,7 @@ export function SoulmatesWebsite() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {THERAPIES.map((t) => (
+          {therapies.map((t: ClinicServiceConfig) => (
             <div
               key={t.id}
               className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 flex flex-col justify-between hover:border-[#D4AF37]/50 transition-all hover:shadow-xl hover:shadow-black/40 group"
@@ -475,7 +403,7 @@ export function SoulmatesWebsite() {
                     Recommended For:
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {t.suitableFor.map((item, idx) => (
+                    {t.suitableFor.map((item: string, idx: number) => (
                       <span
                         key={idx}
                         className="text-[11px] px-2 py-0.5 rounded bg-slate-800/80 text-slate-300 border border-slate-700/60"
@@ -489,8 +417,8 @@ export function SoulmatesWebsite() {
 
               <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
                 <div>
-                  <div className="text-lg font-serif font-bold text-white">{t.price}</div>
-                  <div className="text-[11px] text-slate-500 font-mono">{t.duration}</div>
+                  <div className="text-lg font-serif font-bold text-white">₹{t.price.toLocaleString("en-IN")}</div>
+                  <div className="text-[11px] text-slate-500 font-mono">{t.durationMinutes} mins</div>
                 </div>
 
                 <button
@@ -751,7 +679,7 @@ export function SoulmatesWebsite() {
                         Select Therapy Program
                       </label>
                       <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                        {THERAPIES.map((t) => (
+                        {therapies.map((t: ClinicServiceConfig) => (
                           <div
                             key={t.id}
                             onClick={() => setSelectedTherapy(t)}
@@ -763,10 +691,10 @@ export function SoulmatesWebsite() {
                           >
                             <div>
                               <div className="font-semibold">{t.name}</div>
-                              <div className="text-[11px] text-slate-400 font-light">{t.duration}</div>
+                              <div className="text-[11px] text-slate-400 font-light">{t.durationMinutes} mins</div>
                             </div>
                             <div className="text-right">
-                              <div className="font-serif font-bold text-[#E2C768]">{t.price}</div>
+                              <div className="font-serif font-bold text-[#E2C768]">₹{t.price.toLocaleString("en-IN")}</div>
                             </div>
                           </div>
                         ))}
