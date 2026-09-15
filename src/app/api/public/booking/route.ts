@@ -7,14 +7,23 @@ import {
   activities,
   outboxEvents,
   users,
-  userRoles,
 } from "@/lib/db/schema";
 import { eq, and, notInArray } from "drizzle-orm";
 import {
   getClinicConfig,
   getClinicTimezone,
   resolveClinicPractitioner,
+  getPublicVerifiedServices,
+  BookingMode,
 } from "@/config/clinic.config";
+import {
+  localDateTimeToUtc,
+  getTodayInTimezone,
+  getCurrentTimeInTimezone,
+  getDayOfWeekInTimezone,
+  parseTimeToMinutes,
+  calculateEndTime,
+} from "@/lib/date-utils";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 
@@ -33,17 +42,12 @@ const bookingSchema = z.object({
   email: z.string().trim().email("Invalid email address").optional().or(z.literal("")),
   serviceId: z.string().min(1, "Service ID is required"),
   practitionerId: z.string().optional(),
-  mode: z.enum(["In-Clinic (Wanowrie, Pune)", "Online Secure Telehealth"]).default("In-Clinic (Wanowrie, Pune)"),
+  mode: z.enum(["IN_CLINIC", "ONLINE", "HOME_VISIT"]).default("IN_CLINIC"),
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
   startTime: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
   primaryConcern: z.string().trim().max(1000).optional(),
   hp_website: z.string().optional(), // Honeypot trap
 });
-
-function parseTimeToMinutes(timeStr: string): number {
-  const [hours, minutes] = timeStr.split(":").map(Number);
-  return hours * 60 + minutes;
-}
 
 function sanitizePhone(rawPhone: string): string {
   const digits = rawPhone.replace(/\D/g, "");
@@ -54,14 +58,6 @@ function sanitizePhone(rawPhone: string): string {
     return `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
   }
   return rawPhone.trim();
-}
-
-function calculateEndTime(startTime: string, durationMinutes: number = 60): string {
-  const [hours, minutes] = startTime.split(":").map(Number);
-  const totalEndMin = hours * 60 + minutes + durationMinutes;
-  const endHours = Math.floor(totalEndMin / 60);
-  const endMinutes = totalEndMin % 60;
-  return `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -101,29 +97,19 @@ export async function POST(req: NextRequest) {
     const clinicConfig = getClinicConfig();
     const clinicTz = getClinicTimezone();
 
-    // 3. Timezone, Past-Date & Advance Notice Rules (P4)
-    const now = new Date();
-    const dateInClinic = new Intl.DateTimeFormat("en-CA", {
-      timeZone: clinicTz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(now);
+    // 3. Timezone-Aware Past-Date & Advance Notice Rules (Section 5)
+    const todayInClinic = getTodayInTimezone(clinicTz);
 
-    if (scheduledDate < dateInClinic) {
+    if (scheduledDate < todayInClinic) {
       return NextResponse.json(
         { error: "Appointments cannot be booked in the past." },
         { status: 400 }
       );
     }
 
+    const now = new Date();
     const maxDate = new Date(now.getTime() + clinicConfig.bookingSettings.maxAdvanceDays * 24 * 60 * 60 * 1000);
-    const maxDateInClinic = new Intl.DateTimeFormat("en-CA", {
-      timeZone: clinicTz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(maxDate);
+    const maxDateInClinic = getTodayInTimezone(clinicTz, maxDate);
 
     if (scheduledDate > maxDateInClinic) {
       return NextResponse.json(
@@ -132,14 +118,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (scheduledDate === dateInClinic) {
-      const timeInClinic = new Intl.DateTimeFormat("en-GB", {
-        timeZone: clinicTz,
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).format(now);
-      const currentClinicMin = parseTimeToMinutes(timeInClinic);
+    if (scheduledDate === todayInClinic) {
+      const currentTimeStr = getCurrentTimeInTimezone(clinicTz);
+      const currentClinicMin = parseTimeToMinutes(currentTimeStr);
       const slotStartMin = parseTimeToMinutes(startTime);
       if (slotStartMin < currentClinicMin + clinicConfig.bookingSettings.advanceNoticeHours * 60) {
         return NextResponse.json(
@@ -149,11 +130,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Server-Side Service & Price Resolution (Prevents arbitrary client price injection)
-    const configuredService = clinicConfig.services.find((s) => s.id === serviceId);
+    // 4. Server-Side Service & Content Provenance Gating (Section 9)
+    const publicServices = getPublicVerifiedServices(clinicConfig);
+    const configuredService = publicServices.find((s) => s.id === serviceId);
+
     if (!configuredService) {
       return NextResponse.json(
-        { error: `Requested service '${serviceId}' is not offered by this clinic.` },
+        { error: `Requested service '${serviceId}' is not verified or currently offered for public booking.` },
         { status: 400 }
       );
     }
@@ -161,10 +144,10 @@ export async function POST(req: NextRequest) {
     const servicePrice = configuredService.price.toFixed(2);
     const serviceName = configuredService.name;
     const durationMinutes = configuredService.durationMinutes;
+    const bufferMinutes = clinicConfig.bookingSettings.bufferMinutes || 15;
 
     // 5. Working Hours & Day of Week Validation
-    const targetDate = new Date(`${scheduledDate}T12:00:00+05:30`);
-    const dayOfWeek = targetDate.getDay();
+    const dayOfWeek = getDayOfWeekInTimezone(scheduledDate, clinicTz);
     if (!clinicConfig.workingHours.days.includes(dayOfWeek)) {
       return NextResponse.json(
         { error: "The clinic is closed on the selected day of the week." },
@@ -174,8 +157,8 @@ export async function POST(req: NextRequest) {
 
     const db = await getDb();
 
-    // 6. Strict Practitioner Resolution (P3)
-    let practitionerConfig = resolveClinicPractitioner(clinicConfig, requestedPractitionerId);
+    // 6. Strict Practitioner Resolution & Database Mapping (Section 6)
+    const practitionerConfig = resolveClinicPractitioner(clinicConfig, requestedPractitionerId);
     if (requestedPractitionerId && !practitionerConfig) {
       return NextResponse.json(
         { error: "Invalid or unauthorized practitioner specified." },
@@ -183,8 +166,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let practitionerId: string | null = null;
-    let practitionerName = practitionerConfig?.name || "Col Umakant Saxena";
+    if (!practitionerConfig) {
+      return NextResponse.json(
+        { error: "No active practitioner configured for this clinic." },
+        { status: 503 }
+      );
+    }
+
+    // Deterministic DB user resolution
+    let dbPractitioner: { id: string; name: string } | null = null;
 
     if (requestedPractitionerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedPractitionerId)) {
       const [matchedUser] = await db
@@ -193,44 +183,54 @@ export async function POST(req: NextRequest) {
         .where(eq(users.id, requestedPractitionerId))
         .limit(1);
       if (matchedUser) {
-        practitionerId = matchedUser.id;
-        practitionerName = matchedUser.name;
+        dbPractitioner = matchedUser;
       }
     }
 
-    if (!practitionerId) {
-      const [leadPractitioner] = await db
+    if (!dbPractitioner && practitionerConfig.email) {
+      const [matchedUser] = await db
         .select({ id: users.id, name: users.name })
         .from(users)
-        .innerJoin(userRoles, eq(users.id, userRoles.userId))
-        .where(and(eq(userRoles.roleId, "PRACTITIONER"), eq(users.isActive, true)))
+        .where(eq(users.email, practitionerConfig.email))
         .limit(1);
-
-      if (leadPractitioner) {
-        practitionerId = leadPractitioner.id;
-        practitionerName = leadPractitioner.name;
+      if (matchedUser) {
+        dbPractitioner = matchedUser;
       }
     }
 
-    if (!practitionerId) {
+    if (!dbPractitioner) {
+      const [matchedUser] = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(eq(users.name, practitionerConfig.name))
+        .limit(1);
+      if (matchedUser) {
+        dbPractitioner = matchedUser;
+      }
+    }
+
+    if (!dbPractitioner) {
       return NextResponse.json(
-        { error: "No active clinical practitioner is configured to receive bookings." },
+        { error: `Practitioner database configuration mapping is missing for '${practitionerConfig.name}'.` },
         { status: 503 }
       );
     }
 
+    const practitionerId = dbPractitioner.id;
+    const practitionerName = dbPractitioner.name;
     const formattedPhone = sanitizePhone(phone);
     const endTime = calculateEndTime(startTime, durationMinutes);
+    const blockedUntilTime = calculateEndTime(startTime, durationMinutes + bufferMinutes);
 
-    // Precise timestamps for PostgreSQL range exclusion constraint (P2)
-    const startAt = new Date(`${scheduledDate}T${startTime}:00+05:30`);
-    const endAt = new Date(`${scheduledDate}T${endTime}:00+05:30`);
+    // 7. Timezone-Portable Timestamps with Buffer Policy (Section 5 & 8)
+    const startAt = localDateTimeToUtc(scheduledDate, startTime, clinicTz);
+    const endAt = localDateTimeToUtc(scheduledDate, blockedUntilTime, clinicTz);
 
-    // 7. Atomic Database Transaction
+    // 8. Atomic Database Transaction
     const bookingResult = await db.transaction(async (tx: any) => {
-      // Pre-check for overlapping active appointments on practitioner
+      // Pre-check for overlapping active appointments on practitioner including buffer
       const candidateStartMin = parseTimeToMinutes(startTime);
-      const candidateEndMin = parseTimeToMinutes(endTime);
+      const candidateBlockedUntilMin = parseTimeToMinutes(blockedUntilTime);
 
       const existingAppts = await tx
         .select({
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
         .from(appointments)
         .where(
           and(
-            eq(appointments.practitionerId, practitionerId!),
+            eq(appointments.practitionerId, practitionerId),
             eq(appointments.scheduledDate, scheduledDate),
             notInArray(appointments.status, TERMINAL_OR_UNBLOCKING_STATUSES)
           )
@@ -248,8 +248,8 @@ export async function POST(req: NextRequest) {
 
       const hasOverlap = existingAppts.some((appt: { startTime: string; endTime: string }) => {
         const apptStart = parseTimeToMinutes(appt.startTime);
-        const apptEnd = parseTimeToMinutes(appt.endTime);
-        return Math.max(candidateStartMin, apptStart) < Math.min(candidateEndMin, apptEnd);
+        const apptBlockedUntil = parseTimeToMinutes(appt.endTime) + bufferMinutes;
+        return Math.max(candidateStartMin, apptStart) < Math.min(candidateBlockedUntilMin, apptBlockedUntil);
       });
 
       if (hasOverlap) {
@@ -290,7 +290,7 @@ export async function POST(req: NextRequest) {
           })
           .returning();
       } else {
-        // Contact exists: If previously archived, unarchive with audit reason; update active deal stage
+        // Contact exists: If previously archived, unarchive with audit reason
         await tx
           .update(contacts)
           .set({
@@ -320,7 +320,7 @@ export async function POST(req: NextRequest) {
         })
         .returning();
 
-      // C. Appointment Creation (Semantic initial state: SCHEDULED, startAt, endAt for GiST exclusion)
+      // C. Appointment Creation (Canonical status: SCHEDULED, startAt, endAt for GiST exclusion)
       const [appointment] = await tx
         .insert(appointments)
         .values({
@@ -386,6 +386,11 @@ export async function POST(req: NextRequest) {
       };
     });
 
+    const displayLocation =
+      mode === "ONLINE"
+        ? "Secure Video Consultation (Google Meet link will be provided before session)"
+        : `${clinicConfig.location.address}, ${clinicConfig.location.city}`;
+
     return NextResponse.json({
       success: true,
       bookingReference: bookingResult.appointment.id,
@@ -401,16 +406,15 @@ export async function POST(req: NextRequest) {
         endTime: bookingResult.appointment.endTime,
         therapyType: bookingResult.appointment.therapyType,
         mode: bookingResult.appointment.mode,
+        modeLabel: clinicConfig.bookingSettings.modeDisplayLabels[mode as BookingMode] || mode,
         status: bookingResult.appointment.status, // "SCHEDULED"
         practitioner: practitionerName,
-        location: mode.includes("Online")
-          ? "Secure Video Consultation (Link will be provided before session)"
-          : `${clinicConfig.location.address}, ${clinicConfig.location.city}`,
+        location: displayLocation,
       },
       message: "Your appointment has been scheduled. Our front desk will reach out to confirm your slot.",
     });
   } catch (error: any) {
-    // 8. Overlap & Concurrency Collision Handling (PostgreSQL GiST exclusion constraint or application check)
+    // 9. Concurrency & Range Overlap Handling
     if (
       error?.code === "23P01" ||
       error?.code === "23505" ||

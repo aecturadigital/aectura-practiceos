@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { practitionerAvailability, appointments, users, userRoles } from "@/lib/db/schema";
+import { practitionerAvailability, appointments, users } from "@/lib/db/schema";
 import { eq, and, notInArray } from "drizzle-orm";
 import {
   getClinicConfig,
   getClinicTimezone,
   resolveClinicPractitioner,
+  getPublicVerifiedServices,
 } from "@/config/clinic.config";
+import {
+  getTodayInTimezone,
+  getCurrentTimeInTimezone,
+  getDayOfWeekInTimezone,
+  parseTimeToMinutes,
+  formatMinutesToTime,
+} from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -16,17 +24,6 @@ const TERMINAL_OR_UNBLOCKING_STATUSES = [
   "NO_SHOW",
   "DECLINED_IN_ADVANCE",
 ];
-
-function parseTimeToMinutes(timeStr: string): number {
-  const [hours, minutes] = timeStr.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function formatMinutesToTime(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,31 +42,19 @@ export async function GET(req: NextRequest) {
     const clinicConfig = getClinicConfig();
     const clinicTz = getClinicTimezone();
 
-    // 1. Timezone & Advance Booking Rules
-    const now = new Date();
-    const dateInClinic = new Intl.DateTimeFormat("en-CA", {
-      timeZone: clinicTz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(now);
+    // 1. Timezone-Aware Advance Booking & Past Date Rules
+    const todayInClinic = getTodayInTimezone(clinicTz);
 
-    // Reject past dates
-    if (dateStr < dateInClinic) {
+    if (dateStr < todayInClinic) {
       return NextResponse.json(
         { error: "Appointments cannot be booked in the past." },
         { status: 400 }
       );
     }
 
-    // Reject dates beyond maxAdvanceDays
+    const now = new Date();
     const maxDate = new Date(now.getTime() + clinicConfig.bookingSettings.maxAdvanceDays * 24 * 60 * 60 * 1000);
-    const maxDateInClinic = new Intl.DateTimeFormat("en-CA", {
-      timeZone: clinicTz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(maxDate);
+    const maxDateInClinic = getTodayInTimezone(clinicTz, maxDate);
 
     if (dateStr > maxDateInClinic) {
       return NextResponse.json({
@@ -79,8 +64,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 2. Strict Practitioner Resolution (P3)
-    let practitionerConfig = resolveClinicPractitioner(clinicConfig, practitionerParam);
+    // 2. Strict Practitioner Manifest & Database Mapping (Section 6)
+    const practitionerConfig = resolveClinicPractitioner(clinicConfig, practitionerParam);
     if (practitionerParam && !practitionerConfig) {
       return NextResponse.json(
         { error: "Invalid or unauthorized practitioner specified." },
@@ -88,71 +73,90 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    if (!practitionerConfig) {
+      return NextResponse.json(
+        { error: "No active practitioner configured for this clinic." },
+        { status: 503 }
+      );
+    }
+
     const db = await getDb();
 
-    // Resolve DB user record for the practitioner
-    let dbPractitionerId: string | null = null;
+    // Exact deterministic lookup: Match practitioner by config email or exact UUID
+    let dbPractitioner: { id: string; name: string } | null = null;
+
     if (practitionerParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(practitionerParam)) {
       const [matchedUser] = await db
-        .select({ id: users.id })
+        .select({ id: users.id, name: users.name })
         .from(users)
         .where(eq(users.id, practitionerParam))
         .limit(1);
       if (matchedUser) {
-        dbPractitionerId = matchedUser.id;
+        dbPractitioner = matchedUser;
       }
     }
 
-    if (!dbPractitionerId) {
-      const [leadPractitioner] = await db
-        .select({ id: users.id })
+    if (!dbPractitioner && practitionerConfig.email) {
+      const [matchedUser] = await db
+        .select({ id: users.id, name: users.name })
         .from(users)
-        .innerJoin(userRoles, eq(users.id, userRoles.userId))
-        .where(and(eq(userRoles.roleId, "PRACTITIONER"), eq(users.isActive, true)))
+        .where(eq(users.email, practitionerConfig.email))
         .limit(1);
-
-      if (leadPractitioner) {
-        dbPractitionerId = leadPractitioner.id;
+      if (matchedUser) {
+        dbPractitioner = matchedUser;
       }
     }
 
-    // 3. Service Duration Resolution (P2: 60, 90, 120, 180 min)
+    // Fallback: lookup by practitioner name if seeded with name
+    if (!dbPractitioner) {
+      const [matchedUser] = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(eq(users.name, practitionerConfig.name))
+        .limit(1);
+      if (matchedUser) {
+        dbPractitioner = matchedUser;
+      }
+    }
+
+    if (!dbPractitioner) {
+      return NextResponse.json(
+        { error: `Practitioner mapping missing in database for '${practitionerConfig.name}'.` },
+        { status: 503 }
+      );
+    }
+
+    const dbPractitionerId = dbPractitioner.id;
+
+    // 3. Service Duration & Provenance Gating (Section 8 & 9)
     let serviceDuration = clinicConfig.workingHours.slotDurationMinutes || 60;
     if (serviceIdParam) {
-      const service = clinicConfig.services.find((s) => s.id === serviceIdParam);
+      const publicServices = getPublicVerifiedServices(clinicConfig);
+      const service = publicServices.find((s) => s.id === serviceIdParam);
       if (service) {
         serviceDuration = service.durationMinutes;
       }
     }
 
-    // Determine Day of Week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
-    // Date string parsed at noon IST
-    const targetDate = new Date(`${dateStr}T12:00:00+05:30`);
-    const dayOfWeek = targetDate.getDay();
+    const bufferMinutes = clinicConfig.bookingSettings.bufferMinutes || 15;
+    const dayOfWeek = getDayOfWeekInTimezone(dateStr, clinicTz);
 
     // 4. Fetch Practitioner Availability Rule for this Day of Week
-    let availRule: any = null;
-    if (dbPractitionerId) {
-      const rules = await db
-        .select()
-        .from(practitionerAvailability)
-        .where(
-          and(
-            eq(practitionerAvailability.practitionerId, dbPractitionerId),
-            eq(practitionerAvailability.dayOfWeek, dayOfWeek),
-            eq(practitionerAvailability.isActive, true)
-          )
+    const rules = await db
+      .select()
+      .from(practitionerAvailability)
+      .where(
+        and(
+          eq(practitionerAvailability.practitionerId, dbPractitionerId),
+          eq(practitionerAvailability.dayOfWeek, dayOfWeek),
+          eq(practitionerAvailability.isActive, true)
         )
-        .limit(1);
-      availRule = rules[0];
-    }
+      )
+      .limit(1);
 
-    // Fallback to clinic working hours
-    const dayStart = availRule?.startTime || clinicConfig.workingHours.startTime;
-    const dayEnd = availRule?.endTime || clinicConfig.workingHours.endTime;
-    const buffer = availRule?.bufferMinutes ?? clinicConfig.workingHours.bufferMinutes ?? 15;
+    const availRule = rules[0];
 
-    // If day is not in configured working days (e.g. Sunday)
+    // Check clinic working days
     if (!availRule && !clinicConfig.workingHours.days.includes(dayOfWeek)) {
       return NextResponse.json({
         date: dateStr,
@@ -161,57 +165,53 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 5. Query active booked appointments on this date (P2: Overlap check, unblocking cancelled slots)
-    const apptConditions = [
-      eq(appointments.scheduledDate, dateStr),
-      notInArray(appointments.status, TERMINAL_OR_UNBLOCKING_STATUSES),
-    ];
+    const dayStart = availRule?.startTime || clinicConfig.workingHours.startTime;
+    const dayEnd = availRule?.endTime || clinicConfig.workingHours.endTime;
 
-    if (dbPractitionerId) {
-      apptConditions.push(eq(appointments.practitionerId, dbPractitionerId));
-    }
-
+    // 5. Query active booked appointments on this date
     const bookedAppointments = await db
       .select({
         startTime: appointments.startTime,
         endTime: appointments.endTime,
       })
       .from(appointments)
-      .where(and(...apptConditions));
+      .where(
+        and(
+          eq(appointments.scheduledDate, dateStr),
+          eq(appointments.practitionerId, dbPractitionerId),
+          notInArray(appointments.status, TERMINAL_OR_UNBLOCKING_STATUSES)
+        )
+      );
 
-    // 6. Current Time & Advance Notice Filter (P4: Same-day booking notice window)
+    // 6. Same-Day Advance Notice Filter
     let minAllowedStartMin = 0;
-    if (dateStr === dateInClinic) {
-      const timeInClinic = new Intl.DateTimeFormat("en-GB", {
-        timeZone: clinicTz,
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).format(now);
-      const currentClinicMin = parseTimeToMinutes(timeInClinic);
+    if (dateStr === todayInClinic) {
+      const currentTimeStr = getCurrentTimeInTimezone(clinicTz);
+      const currentClinicMin = parseTimeToMinutes(currentTimeStr);
       minAllowedStartMin = currentClinicMin + clinicConfig.bookingSettings.advanceNoticeHours * 60;
     }
 
-    // 7. Generate discrete time slots between startTime and endTime evaluating service duration
+    // 7. Generate discrete time slots evaluating session duration + buffer policy
     const dayStartMin = parseTimeToMinutes(dayStart);
     const dayEndMin = parseTimeToMinutes(dayEnd);
-    const step = 60 + buffer; // standard slot increment grid
+    const step = 60 + bufferMinutes; // Standard slot increment grid
 
     const availableSlots: string[] = [];
     let currentMin = dayStartMin;
 
     while (currentMin + serviceDuration <= dayEndMin) {
-      const slotEndMin = currentMin + serviceDuration;
-
-      // Check advance notice requirement if today
-      const meetsAdvanceNotice = dateStr !== dateInClinic || currentMin >= minAllowedStartMin;
+      const meetsAdvanceNotice = dateStr !== todayInClinic || currentMin >= minAllowedStartMin;
 
       if (meetsAdvanceNotice) {
-        // Range overlap check against booked appointments: [currentMin, slotEndMin) overlaps [apptStart, apptEnd)
+        // Candidate interval blocked for duration + buffer
+        const candidateStart = currentMin;
+        const candidateBlockedUntil = currentMin + serviceDuration + bufferMinutes;
+
+        // Check range overlap against all active booked appointments
         const hasOverlap = bookedAppointments.some((appt: { startTime: string; endTime: string }) => {
           const apptStart = parseTimeToMinutes(appt.startTime);
-          const apptEnd = parseTimeToMinutes(appt.endTime);
-          return Math.max(currentMin, apptStart) < Math.min(slotEndMin, apptEnd);
+          const apptBlockedUntil = parseTimeToMinutes(appt.endTime) + bufferMinutes;
+          return Math.max(candidateStart, apptStart) < Math.min(candidateBlockedUntil, apptBlockedUntil);
         });
 
         if (!hasOverlap) {
@@ -224,12 +224,13 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       date: dateStr,
-      practitionerId: dbPractitionerId || practitionerConfig?.id,
-      practitionerName: practitionerConfig?.name,
+      timezone: clinicTz,
+      practitionerId: dbPractitionerId,
+      practitionerName: practitionerConfig.name,
       serviceDurationMinutes: serviceDuration,
+      bufferMinutes,
       availableSlots,
       slotDurationMinutes: serviceDuration,
-      bufferMinutes: buffer,
     });
   } catch (error: any) {
     console.error("Public availability fetch error:", error);

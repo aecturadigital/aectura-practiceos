@@ -1,6 +1,9 @@
+export type BookingMode = "IN_CLINIC" | "ONLINE" | "HOME_VISIT";
+
 export interface ClinicPractitionerConfig {
-  id: string;
+  id: string; // Stable practitioner config key (e.g. "practitioner_umakant_saxena")
   name: string;
+  email: string; // Stable DB user mapping key
   title: string;
   militaryBackground?: string;
   qualifications: string[];
@@ -16,6 +19,8 @@ export interface ClinicServiceConfig {
   durationMinutes: number;
   price: number;
   currency: string;
+  status: "VERIFIED" | "NEEDS_CLIENT_CONFIRMATION" | "DISABLED";
+  verifiedForPublicUse: boolean;
   description: string;
   suitableFor: string[];
   badge?: string;
@@ -36,7 +41,7 @@ export interface ClinicConfig {
     legalName: string;
     slug: string;
     tagline: string;
-    leadPractitioner: string;
+    leadPractitionerKey: string;
   };
   brand: {
     primaryColor: string;
@@ -49,7 +54,7 @@ export interface ClinicConfig {
     state: string;
     country: string;
     postalCode: string;
-    timezone: string; // e.g. "Asia/Kolkata"
+    timezone: string; // e.g. "Asia/Kolkata", "Asia/Dubai", "Europe/London"
     googleMapsUrl?: string;
   };
   contact: {
@@ -67,7 +72,10 @@ export interface ClinicConfig {
     advanceNoticeHours: number;
     maxAdvanceDays: number;
     timezone: string;
+    bufferPolicy: "SESSION_PLUS_BUFFER"; // Practitioner blocked for duration + buffer
+    bufferMinutes: number;
     requirePhoneVerification: boolean;
+    modeDisplayLabels: Record<BookingMode, string>;
   };
   publicCopy: {
     heroBadge: string;
@@ -80,6 +88,7 @@ export interface ClinicConfig {
       program: string;
       narrative: string;
       rating: number;
+      provenanceStatus: "VERIFIED" | "NEEDS_CLIENT_CONFIRMATION";
     }>;
   };
   featureFlags: {
@@ -90,7 +99,7 @@ export interface ClinicConfig {
 }
 
 /**
- * Soulmates Hypnotherapy & Mind-Body Wellness Center (Canonical Clinic Manifest)
+ * Soulmates Therapy Centre (Canonical Clinic Manifest)
  * Gold Master implementation instance for Pune clinic deployment.
  */
 export const soulmatesClinicConfig: ClinicConfig = {
@@ -100,7 +109,7 @@ export const soulmatesClinicConfig: ClinicConfig = {
     legalName: "Soulmates Therapy Centre",
     slug: "soulmates-hypnotherapy",
     tagline: "Every soul has a story, find yours…",
-    leadPractitioner: "Col Umakant Saxena",
+    leadPractitionerKey: "practitioner_umakant_saxena",
   },
   brand: {
     primaryColor: "#064E3B",
@@ -126,13 +135,14 @@ export const soulmatesClinicConfig: ClinicConfig = {
     {
       id: "practitioner_umakant_saxena",
       name: "Col Umakant Saxena",
+      email: "col.saxena@soulmatestherapy.com",
       title: "Founder & Chief Clinical Hypnotherapist",
       militaryBackground: "Retired Indian Armed Forces Colonel, Ex-Army Officer & Computer Engineer",
       qualifications: [
         "Ex-Army Officer & Computer Engineer",
         "M.Sc. Counseling & Spiritual Health",
         "Certified Clinical Hypnotherapist & Regression Specialist",
-        "Over 4 Decades of High-Altitude Himalayan Sadhna",
+        "Over 4 Decades of High-Altitude Himalayan Sadhna (since 1972)",
       ],
       bio: "Col Umakant Saxena combines rigorous scientific discipline with over four decades of deep spiritual practice. Having conducted high-altitude Himalayan sadhnas since 1972, he has helped over 1,100 individuals overcome chronic anxiety, depression, phobias, and deep-seated psychosomatic conditions through safe, medicine-free subconscious regression.",
       quote: "Every soul has a story, find yours… The subconscious mind holds the keys to healing emotional trauma and chronic somatic tension safely without medications.",
@@ -146,6 +156,8 @@ export const soulmatesClinicConfig: ClinicConfig = {
       durationMinutes: 60,
       price: 2500,
       currency: "INR",
+      status: "VERIFIED",
+      verifiedForPublicUse: true,
       badge: "Most Popular",
       description: "Diagnostic intake and subconscious regression. Targets panic triggers, emotional distress, and subconscious blocks.",
       suitableFor: ["Acute Anxiety", "Panic Episodes", "Psychosomatic Symptoms", "Stress Management"],
@@ -157,6 +169,8 @@ export const soulmatesClinicConfig: ClinicConfig = {
       durationMinutes: 150,
       price: 5000,
       currency: "INR",
+      status: "VERIFIED",
+      verifiedForPublicUse: true,
       badge: "Deep Trance",
       description: "Deep somnambulistic trance exploration designed to resolve inexplicable phobias, recurring relationship patterns, and somatic pains.",
       suitableFor: ["Inexplicable Phobias", "Karmic Traumas", "Spiritual Exploration", "Relational Loops"],
@@ -168,6 +182,8 @@ export const soulmatesClinicConfig: ClinicConfig = {
       durationMinutes: 60,
       price: 2500,
       currency: "INR",
+      status: "VERIFIED",
+      verifiedForPublicUse: true,
       badge: "Worldwide",
       description: "Secure 1-on-1 virtual clinical hypnotherapy session for clients across India and globally via Google Meet.",
       suitableFor: ["Remote Patients", "Anxiety Management", "Stress Reduction", "Sleep Issues"],
@@ -179,6 +195,8 @@ export const soulmatesClinicConfig: ClinicConfig = {
       durationMinutes: 180,
       price: 7500,
       currency: "INR",
+      status: "NEEDS_CLIENT_CONFIRMATION",
+      verifiedForPublicUse: false, // Gated until client confirms multi-session package availability
       badge: "High Efficacy",
       description: "Evidence-based 3-stage hypnotherapy protocol. Deep hypnotic desensitization followed by permanent emotional anchoring.",
       suitableFor: ["Generalized Anxiety (GAD)", "Performance Anxiety", "Chronic Overthinking", "Burnout"],
@@ -190,6 +208,8 @@ export const soulmatesClinicConfig: ClinicConfig = {
       durationMinutes: 60,
       price: 2500,
       currency: "INR",
+      status: "NEEDS_CLIENT_CONFIRMATION",
+      verifiedForPublicUse: false, // Gated until confirmed
       description: "Reprograms the autonomic nervous system to accelerate sleep onset, eliminate awakenings, and restore delta wave sleep.",
       suitableFor: ["Chronic Insomnia", "Racing Thoughts at Bedtime", "Sleep Anxiety", "Non-Restorative Sleep"],
     },
@@ -200,6 +220,8 @@ export const soulmatesClinicConfig: ClinicConfig = {
       durationMinutes: 60,
       price: 2500,
       currency: "INR",
+      status: "NEEDS_CLIENT_CONFIRMATION",
+      verifiedForPublicUse: false, // Gated until confirmed
       description: "Focused neuro-linguistic and trance dissociation protocol to permanently disarm acute phobic triggers.",
       suitableFor: ["Fear of Heights / Flying", "Claustrophobia", "Public Speaking Panic", "Medical Phobias"],
     },
@@ -217,7 +239,14 @@ export const soulmatesClinicConfig: ClinicConfig = {
     advanceNoticeHours: 4,
     maxAdvanceDays: 30,
     timezone: "Asia/Kolkata",
+    bufferPolicy: "SESSION_PLUS_BUFFER",
+    bufferMinutes: 15,
     requirePhoneVerification: false,
+    modeDisplayLabels: {
+      IN_CLINIC: "In-Clinic Consultation (Wanowrie, Pune)",
+      ONLINE: "Online Secure Telehealth (Google Meet)",
+      HOME_VISIT: "Special In-Home Consultation",
+    },
   },
   publicCopy: {
     heroBadge: "Medicine-Free Clinical Hypnotherapy • Led by Col Umakant Saxena",
@@ -248,6 +277,7 @@ export const soulmatesClinicConfig: ClinicConfig = {
         program: "Past Life Regression",
         narrative: "I was experiencing unexplainable emotional heaviness and recurring anxieties that conventional medicine could not diagnose. Col Umakant Saxena guided me through a deep PLR session. Once brought to consciousness, the emotional knots dissolved completely. I feel renewed and light.",
         rating: 5,
+        provenanceStatus: "VERIFIED",
       },
       {
         clientName: "Ms. Vasanta",
@@ -255,6 +285,7 @@ export const soulmatesClinicConfig: ClinicConfig = {
         program: "Clinical Hypnotherapy",
         narrative: "I had suffered from panic attacks and insomnia for over 4 years. After just 5 sessions of clinical hypnotherapy at Soulmates Therapy Centre, my anxiety disappeared. Col Saxena's calm presence and spiritual depth made me feel completely safe. No medicines, no side effects.",
         rating: 5,
+        provenanceStatus: "VERIFIED",
       },
       {
         clientName: "Dr. K. Mehta (MBBS)",
@@ -262,45 +293,48 @@ export const soulmatesClinicConfig: ClinicConfig = {
         program: "Clinical Hypnotherapy",
         narrative: "As a medical doctor, I was initially analytical about hypnotherapy. However, witnessing Col Saxena's scientific approach convinced me. His work on psychosomatic disorders and past life regression is truly remarkable.",
         rating: 5,
+        provenanceStatus: "VERIFIED",
       },
     ],
   },
   featureFlags: {
     enableOnlineTelehealth: true,
     enableHoneypotValidation: true,
-    enablePlatformLanding: false, // Strict Production Default: internal/B2B landing is disabled
+    enablePlatformLanding: false,
   },
 };
 
-/**
- * Returns the active clinic configuration for this deployment.
- */
 export function getClinicConfig(): ClinicConfig {
   return soulmatesClinicConfig;
 }
 
-/**
- * Returns the deployment timezone for scheduling calculations.
- */
 export function getClinicTimezone(): string {
-  return soulmatesClinicConfig.bookingSettings.timezone || "Asia/Kolkata";
+  return soulmatesClinicConfig.location.timezone || "Asia/Kolkata";
+}
+
+/**
+ * Returns only public-verified services available for live booking.
+ */
+export function getPublicVerifiedServices(clinicConfig: ClinicConfig = soulmatesClinicConfig): ClinicServiceConfig[] {
+  return clinicConfig.services.filter((s) => s.verifiedForPublicUse && s.status === "VERIFIED");
 }
 
 /**
  * Validates and resolves an authorized practitioner against the clinic configuration.
- * Prevents arbitrary practitioner ID fabrication from public clients.
+ * Maps deterministic config practitioner keys (e.g. "practitioner_umakant_saxena")
+ * or configured practitioner names to their manifest entity.
  */
 export function resolveClinicPractitioner(
   clinicConfig: ClinicConfig,
   practitionerParam?: string | null
 ): ClinicPractitionerConfig | null {
   if (!practitionerParam) {
-    // Default to lead practitioner configured in manifest
+    // Default to configured lead practitioner key
     return (
       clinicConfig.practitioners.find(
         (p) =>
-          p.id === clinicConfig.identity.leadPractitioner ||
-          p.name === clinicConfig.identity.leadPractitioner
+          p.id === clinicConfig.identity.leadPractitionerKey ||
+          p.name === clinicConfig.identity.leadPractitionerKey
       ) || clinicConfig.practitioners[0] || null
     );
   }

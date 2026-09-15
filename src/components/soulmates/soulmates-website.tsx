@@ -27,11 +27,11 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-import { getClinicConfig, ClinicServiceConfig } from "@/config/clinic.config";
+import { getClinicConfig, ClinicServiceConfig, getPublicVerifiedServices, BookingMode } from "@/config/clinic.config";
 
 export function SoulmatesWebsite() {
   const clinicConfig = getClinicConfig();
-  const therapies = clinicConfig.services;
+  const therapies = getPublicVerifiedServices(clinicConfig);
   const leadDoctor = clinicConfig.practitioners[0];
 
   // Modal & Funnel State
@@ -39,10 +39,8 @@ export function SoulmatesWebsite() {
   const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
 
   // Booking Form State
-  const [selectedTherapy, setSelectedTherapy] = useState<ClinicServiceConfig>(therapies[0]);
-  const [selectedMode, setSelectedMode] = useState<"In-Clinic (Wanowrie, Pune)" | "Online Secure Telehealth">(
-    "In-Clinic (Wanowrie, Pune)"
-  );
+  const [selectedTherapy, setSelectedTherapy] = useState<ClinicServiceConfig>(therapies[0] || clinicConfig.services[0]);
+  const [selectedMode, setSelectedMode] = useState<BookingMode>("IN_CLINIC");
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     // Tomorrow's date in YYYY-MM-DD
     const d = new Date();
@@ -708,9 +706,9 @@ export function SoulmatesWebsite() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() => setSelectedMode("In-Clinic (Wanowrie, Pune)")}
-                          className={`p-3 rounded-xl border text-xs font-medium text-left transition-all ${
-                            selectedMode.startsWith("In-Clinic")
+                          onClick={() => setSelectedMode("IN_CLINIC")}
+                          className={`p-3 rounded-xl border text-xs font-medium text-left transition-all cursor-pointer ${
+                            selectedMode === "IN_CLINIC"
                               ? "border-teal-500 bg-teal-500/10 text-teal-300"
                               : "border-slate-800 bg-slate-900 text-slate-400"
                           }`}
@@ -721,9 +719,9 @@ export function SoulmatesWebsite() {
 
                         <button
                           type="button"
-                          onClick={() => setSelectedMode("Online Secure Telehealth")}
-                          className={`p-3 rounded-xl border text-xs font-medium text-left transition-all ${
-                            selectedMode.startsWith("Online")
+                          onClick={() => setSelectedMode("ONLINE")}
+                          className={`p-3 rounded-xl border text-xs font-medium text-left transition-all cursor-pointer ${
+                            selectedMode === "ONLINE"
                               ? "border-teal-500 bg-teal-500/10 text-teal-300"
                               : "border-slate-800 bg-slate-900 text-slate-400"
                           }`}
