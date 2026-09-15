@@ -4,6 +4,9 @@ import {
   roles,
   users,
   userRoles,
+  permissions,
+  rolePermissions,
+  patientAccounts,
   staffProfiles,
   practitionerAvailability,
   contacts,
@@ -17,31 +20,66 @@ import {
   invoices,
   outboxEvents,
 } from "../src/lib/db/schema";
+import {
+  CANONICAL_PERMISSIONS,
+  DEFAULT_ROLE_PERMISSIONS,
+  ClinicRole,
+} from "../src/lib/auth/permissions";
 import { eq } from "drizzle-orm";
 
 async function seed() {
   console.log("-> Seeding Soulmates Hypnotherapy Clinic Database (clinic_soulmates)...");
   const db = await getDb();
 
-  // 1. ROLES
-  console.log("[1/9] Seeding standard RBAC roles...");
+  // 1. ROLES & CANONICAL PERMISSIONS
+  console.log("[1/9] Seeding standard RBAC roles and canonical permissions...");
   const standardRoles = [
     { id: "OWNER", name: "Clinic Owner", description: "Full administrative and clinical ownership" },
     { id: "CLINIC_ADMIN", name: "Clinic Administrator", description: "Operational and billing management" },
     { id: "PRACTITIONER", name: "Practitioner / Therapist", description: "Clinical sessions and EMR records" },
     { id: "RECEPTIONIST", name: "Front Desk Receptionist", description: "Scheduling, intake, and triage" },
     { id: "BILLING_ACCOUNTANT", name: "Billing Accountant", description: "Ledger, invoices, and payment tracking" },
-    { id: "PATIENT", name: "Patient / Client", description: "Patient portal read-only access" },
+    { id: "HR_MANAGER", name: "HR Manager", description: "StaffOps, attendance, contracts, and payroll" },
+    { id: "READ_ONLY_AUDITOR", name: "Read-Only Auditor", description: "Inspection and regulatory compliance with zero mutations" },
+    { id: "PATIENT", name: "Patient / Client", description: "Patient portal self-service access" },
   ];
 
   for (const r of standardRoles) {
     await db.insert(roles).values(r).onConflictDoNothing();
   }
 
-  // 2. PRACTITIONER & STAFF USERS
-  console.log("[2/9] Seeding clinical practitioners and staff with hashed credentials...");
+  // Seed canonical permissions
+  for (const perm of CANONICAL_PERMISSIONS) {
+    const category = perm.split(".")[0];
+    await db
+      .insert(permissions)
+      .values({
+        id: perm,
+        name: perm,
+        category,
+        description: `Permission grant for ${perm}`,
+      })
+      .onConflictDoNothing();
+  }
+
+  // Seed role permissions mapping
+  for (const [roleId, permList] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    for (const permId of permList) {
+      await db
+        .insert(rolePermissions)
+        .values({
+          roleId,
+          permissionId: permId,
+        })
+        .onConflictDoNothing();
+    }
+  }
+
+  // 2. PRACTITIONER, STAFF, HR & AUDITOR USERS
+  console.log("[2/9] Seeding clinical practitioners, staff, HR, auditor, and patient with hashed credentials...");
   const defaultPasswordHash = hashPassword("Soulmates@2026!");
 
+  // Clinic Owner
   let [ownerUser] = await db.select().from(users).where(eq(users.email, "owner@soulmatestherapy.com")).limit(1);
   if (!ownerUser) {
     [ownerUser] = await db
@@ -62,6 +100,7 @@ async function seed() {
     await db.update(users).set({ passwordHash: defaultPasswordHash }).where(eq(users.id, ownerUser.id));
   }
 
+  // Receptionist Staff
   let [receptionUser] = await db.select().from(users).where(eq(users.email, "staff@soulmatestherapy.com")).limit(1);
   if (!receptionUser) {
     [receptionUser] = await db
@@ -81,7 +120,67 @@ async function seed() {
     await db.update(users).set({ passwordHash: defaultPasswordHash }).where(eq(users.id, receptionUser.id));
   }
 
-  // Staff Profile
+  // HR Manager User (zero patient clinical access)
+  let [hrUser] = await db.select().from(users).where(eq(users.email, "hr@soulmatestherapy.com")).limit(1);
+  if (!hrUser) {
+    [hrUser] = await db
+      .insert(users)
+      .values({
+        email: "hr@soulmatestherapy.com",
+        name: "Anand Patil (HR)",
+        passwordHash: defaultPasswordHash,
+        isActive: true,
+      })
+      .returning();
+
+    await db.insert(userRoles).values([
+      { userId: hrUser.id, roleId: "HR_MANAGER" },
+    ]).onConflictDoNothing();
+  } else {
+    await db.update(users).set({ passwordHash: defaultPasswordHash }).where(eq(users.id, hrUser.id));
+  }
+
+  // Read-Only Auditor User (strictly read-only)
+  let [auditorUser] = await db.select().from(users).where(eq(users.email, "auditor@soulmatestherapy.com")).limit(1);
+  if (!auditorUser) {
+    [auditorUser] = await db
+      .insert(users)
+      .values({
+        email: "auditor@soulmatestherapy.com",
+        name: "Meera Sen (Auditor)",
+        passwordHash: defaultPasswordHash,
+        isActive: true,
+      })
+      .returning();
+
+    await db.insert(userRoles).values([
+      { userId: auditorUser.id, roleId: "READ_ONLY_AUDITOR" },
+    ]).onConflictDoNothing();
+  } else {
+    await db.update(users).set({ passwordHash: defaultPasswordHash }).where(eq(users.id, auditorUser.id));
+  }
+
+  // Patient User Account (Portal identity)
+  let [patientUser] = await db.select().from(users).where(eq(users.email, "priya.patient@example.com")).limit(1);
+  if (!patientUser) {
+    [patientUser] = await db
+      .insert(users)
+      .values({
+        email: "priya.patient@example.com",
+        name: "Priya Sharma (Patient)",
+        passwordHash: defaultPasswordHash,
+        isActive: true,
+      })
+      .returning();
+
+    await db.insert(userRoles).values([
+      { userId: patientUser.id, roleId: "PATIENT" },
+    ]).onConflictDoNothing();
+  } else {
+    await db.update(users).set({ passwordHash: defaultPasswordHash }).where(eq(users.id, patientUser.id));
+  }
+
+  // Staff Profile for Receptionist
   let [staffProf] = await db.select().from(staffProfiles).where(eq(staffProfiles.email, "staff@soulmatestherapy.com")).limit(1);
   if (!staffProf) {
     [staffProf] = await db
@@ -143,6 +242,26 @@ async function seed() {
         notes: "Referred by Dr. Kulkarni. Prefers evening slots after 5 PM.",
       })
       .returning();
+  }
+
+  // Link Patient Account Identity
+  let [existingPatientAcc] = await db
+    .select()
+    .from(patientAccounts)
+    .where(eq(patientAccounts.contactId, priyaPatient.id))
+    .limit(1);
+
+  if (!existingPatientAcc) {
+    await db
+      .insert(patientAccounts)
+      .values({
+        userId: patientUser.id,
+        contactId: priyaPatient.id,
+        portalAccessEnabled: true,
+        lastLoginAt: new Date(),
+      })
+      .onConflictDoNothing();
+    console.log("  ✓ Patient Account link verified: User 'priya.patient@example.com' -> Contact 'Priya Sharma'");
   }
 
   let [rajeshPatient] = await db.select().from(contacts).where(eq(contacts.phone, "+91 94220 54321")).limit(1);
@@ -341,7 +460,7 @@ async function seed() {
     scheduledAt: new Date(),
   }).onConflictDoNothing();
 
-  console.log("-> Soulmates Clinic Database seed complete! All 29 tables instantiated and populated.");
+  console.log("-> Soulmates Clinic Database seed complete! All 33 tables instantiated and populated.");
 }
 
 seed().catch((err) => {

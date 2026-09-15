@@ -45,7 +45,7 @@ export const sessions = pgTable(
 );
 
 export const roles = pgTable("roles", {
-  id: text("id").primaryKey(), // 'OWNER', 'CLINIC_ADMIN', 'PRACTITIONER', 'RECEPTIONIST', 'BILLING_ACCOUNTANT', 'PATIENT'
+  id: text("id").primaryKey(), // 'OWNER', 'CLINIC_ADMIN', 'PRACTITIONER', 'RECEPTIONIST', 'BILLING_ACCOUNTANT', 'HR_MANAGER', 'PATIENT', 'READ_ONLY_AUDITOR'
   name: text("name").notNull(),
   description: text("description"),
 });
@@ -63,8 +63,46 @@ export const userRoles = pgTable(
   ]
 );
 
+export const permissions = pgTable("permissions", {
+  id: text("id").primaryKey(), // e.g. 'contacts.read', 'clinical_notes.read'
+  name: text("name").notNull(),
+  category: text("category").notNull(), // 'contacts', 'appointments', 'clinical_notes', 'treatment_plans', 'billing', 'documents', 'staff', 'payroll', 'exports', 'settings'
+  description: text("description"),
+});
+
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    roleId: text("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+    permissionId: text("permission_id").notNull().references(() => permissions.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniq_role_permission").on(table.roleId, table.permissionId),
+    index("idx_role_permissions_role").on(table.roleId),
+  ]
+);
+
+export const userPermissionOverrides = pgTable(
+  "user_permission_overrides",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    permissionId: text("permission_id").notNull().references(() => permissions.id, { onDelete: "cascade" }),
+    effect: text("effect").notNull(), // 'ALLOW' | 'DENY'
+    reason: text("reason"),
+    grantedBy: uuid("granted_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniq_user_override").on(table.userId, table.permissionId),
+    index("idx_user_overrides_user").on(table.userId),
+  ]
+);
+
 // ============================================================================
-// 2. PEOPLE & CRM (CANONICAL 360° CONTACT)
+// 2. PEOPLE & CRM (CANONICAL 360° CONTACT & PATIENT IDENTITY)
 // ============================================================================
 
 export const contacts = pgTable(
@@ -86,6 +124,10 @@ export const contacts = pgTable(
     tags: jsonb("tags").$type<string[]>().default([]).notNull(),
     notes: text("notes"),
     isRestrictedProfile: boolean("is_restricted_profile").notNull().default(false),
+    isArchived: boolean("is_archived").notNull().default(false),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archivedBy: uuid("archived_by").references(() => users.id, { onDelete: "set null" }),
+    archiveReason: text("archive_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -93,6 +135,24 @@ export const contacts = pgTable(
     index("idx_contacts_phone").on(table.phone),
     index("idx_contacts_status").on(table.status),
     index("idx_contacts_stage").on(table.activeDealStage),
+    index("idx_contacts_is_archived").on(table.isArchived),
+  ]
+);
+
+export const patientAccounts = pgTable(
+  "patient_accounts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }).unique(),
+    portalAccessEnabled: boolean("portal_access_enabled").notNull().default(true),
+    lastPortalLoginAt: timestamp("last_portal_login_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_patient_accounts_user_id").on(table.userId),
+    index("idx_patient_accounts_contact_id").on(table.contactId),
   ]
 );
 
@@ -100,7 +160,7 @@ export const crmDeals = pgTable(
   "crm_deals",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     title: text("title").notNull(),
     stage: text("stage").notNull().default("lead"),
     value: numeric("value", { precision: 10, scale: 2 }).notNull().default("2500.00"),
@@ -122,7 +182,7 @@ export const activities = pgTable(
   "activities",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     type: text("type").notNull(), // 'NOTE', 'STAGE_CHANGE', 'CALL', 'EMAIL', 'WHATSAPP', 'APPOINTMENT_BOOKED', 'PAYMENT_RECEIVED'
     title: text("title").notNull(),
     description: text("description"),
@@ -143,7 +203,7 @@ export const appointments = pgTable(
   "appointments",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     practitionerId: uuid("practitioner_id").references(() => users.id, { onDelete: "set null" }),
     practitionerName: text("practitioner_name").notNull().default("Col Umakant Saxena"),
     therapyType: text("therapy_type").notNull(),
@@ -191,7 +251,7 @@ export const treatmentCourses = pgTable(
   "treatment_courses",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     title: text("title").notNull(),
     prescribedBy: uuid("prescribed_by").references(() => users.id, { onDelete: "set null" }),
     status: text("status").notNull().default("ACTIVE"), // 'ACTIVE', 'ON_HOLD', 'FROZEN', 'COMPLETED', 'CANCELLED'
@@ -276,7 +336,7 @@ export const clinicalNotes = pgTable(
   "clinical_notes",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "set null" }),
     practitionerId: uuid("practitioner_id").references(() => users.id, { onDelete: "set null" }),
     sessionNumber: integer("session_number").notNull().default(1),
@@ -297,7 +357,7 @@ export const patientTrackers = pgTable(
   "patient_trackers",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     trackerType: text("tracker_type").notNull(), // 'PAIN_SCALE', 'SLEEP_QUALITY', 'MOBILITY', 'MOOD', 'EXERCISE_ADHERENCE'
     minValue: integer("min_value").notNull().default(0),
     maxValue: integer("max_value").notNull().default(10),
@@ -315,7 +375,7 @@ export const trackerEntries = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     trackerId: uuid("tracker_id").notNull().references(() => patientTrackers.id, { onDelete: "cascade" }),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     value: numeric("value", { precision: 5, scale: 2 }).notNull(),
     notes: text("notes"),
     recordedAt: timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),
@@ -334,7 +394,7 @@ export const ledgerTransactions = pgTable(
   "ledger_transactions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     cycleId: uuid("cycle_id").references(() => planCycles.id, { onDelete: "set null" }),
     appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "set null" }),
     type: text("type").notNull(), // 'CHARGE', 'PAYMENT', 'REFUND', 'DISCOUNT', 'WAIVER', 'ADD_ON_SERVICE', 'ADJUSTMENT'
@@ -357,7 +417,7 @@ export const invoices = pgTable(
   "invoices",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     invoiceNumber: text("invoice_number").notNull().unique(),
     issueDate: date("issue_date").notNull(),
     dueDate: date("due_date").notNull(),
@@ -381,7 +441,7 @@ export const paymentReminders = pgTable(
   "payment_reminders",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     invoiceId: uuid("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
     amountDue: numeric("amount_due", { precision: 10, scale: 2 }).notNull(),
     draftMessage: text("draft_message").notNull(),
@@ -404,7 +464,7 @@ export const documentRequests = pgTable(
   "document_requests",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     title: text("title").notNull(),
     documentType: text("document_type").notNull(), // 'CLINICAL_REPORT', 'INTAKE_CONSENT', 'LAB_RESULT', 'IDENTITY_PROOF'
     status: text("status").notNull().default("REQUESTED"), // 'REQUESTED', 'UPLOADED', 'REVIEWED', 'REJECTED'
@@ -422,7 +482,7 @@ export const patientDocuments = pgTable(
   "patient_documents",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     requestId: uuid("request_id").references(() => documentRequests.id, { onDelete: "set null" }),
     fileName: text("file_name").notNull(),
     fileSize: integer("file_size").notNull(),
@@ -530,7 +590,7 @@ export const conversations = pgTable(
   "conversations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
     channel: text("channel").notNull().default("WHATSAPP"), // 'WHATSAPP', 'EMAIL', 'SMS'
     lastMessageSnippet: text("last_message_snippet"),
     lastMessageAt: timestamp("last_message_at", { withTimezone: true }).defaultNow().notNull(),
@@ -615,6 +675,14 @@ export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type Role = typeof roles.$inferSelect;
 export type UserRole = typeof userRoles.$inferSelect;
+export type Permission = typeof permissions.$inferSelect;
+export type NewPermission = typeof permissions.$inferInsert;
+export type RolePermission = typeof rolePermissions.$inferSelect;
+export type NewRolePermission = typeof rolePermissions.$inferInsert;
+export type UserPermissionOverride = typeof userPermissionOverrides.$inferSelect;
+export type NewUserPermissionOverride = typeof userPermissionOverrides.$inferInsert;
+export type PatientAccount = typeof patientAccounts.$inferSelect;
+export type NewPatientAccount = typeof patientAccounts.$inferInsert;
 
 export type Contact = typeof contacts.$inferSelect;
 export type NewContact = typeof contacts.$inferInsert;

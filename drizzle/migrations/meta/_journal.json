@@ -8,6 +8,13 @@
       "when": 1789424258799,
       "tag": "0000_premium_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789425590980,
+      "tag": "0001_dry_apocalypse",
+      "breakpoints": true
     }
   ]
 }

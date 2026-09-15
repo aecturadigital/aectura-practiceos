@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentSession } from "@/lib/auth/session";
-import { PERMISSIONS, hasPermission, PermissionAction } from "@/lib/auth/permissions";
+import { PERMISSIONS, hasPermission, PermissionAction, getEffectivePermissions } from "@/lib/auth/permissions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,6 +13,8 @@ export async function GET(req: NextRequest) {
       hasPermission(user.roles, action as PermissionAction)
     );
 
+    const effectivePermsSet = await getEffectivePermissions(user.id);
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -21,6 +23,7 @@ export async function GET(req: NextRequest) {
         roles: user.roles,
       },
       permissions: permittedActions,
+      effectivePermissions: Array.from(effectivePermsSet),
     });
   } catch (error: any) {
     console.error("Auth me error:", error);

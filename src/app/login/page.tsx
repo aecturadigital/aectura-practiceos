@@ -8,6 +8,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") || "/app";
+  const isDemoLoginEnabled = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,10 +44,26 @@ function LoginForm() {
     }
   };
 
-  const handleQuickLogin = (quickEmail: string) => {
-    setEmail(quickEmail);
-    setPassword("Soulmates@2026!");
+  const handleQuickLogin = async (quickEmail: string) => {
+    setIsLoading(true);
     setErrorMessage(null);
+    try {
+      const res = await fetch("/api/auth/demo-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: quickEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Demo authentication failed");
+      }
+      router.push(from);
+      router.refresh();
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to authenticate demo user.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -140,50 +157,88 @@ function LoginForm() {
             </button>
           </form>
 
-          {/* Quick Demo Staff Logins */}
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-              <span>Soulmates Quick Demo Profiles</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin("owner@soulmatestherapy.com")}
-                className="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-teal-400 hover:bg-teal-50/30 transition-all flex items-center justify-between group"
-              >
-                <div>
-                  <div className="text-xs font-semibold text-slate-900 group-hover:text-teal-900">
-                    Col Umakant Saxena
+          {/* Quick Demo Staff Logins (Rendered ONLY if NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true") */}
+          {isDemoLoginEnabled && (
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                <span>Soulmates Quick Demo Profiles</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("owner@soulmatestherapy.com")}
+                  className="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-teal-400 hover:bg-teal-50/30 transition-all flex items-center justify-between group cursor-pointer"
+                >
+                  <div>
+                    <div className="text-xs font-semibold text-slate-900 group-hover:text-teal-900">
+                      Col Umakant Saxena
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Clinic Owner • Full Clinical & Financial Authority
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    Clinic Owner • Therapist (Full Clinical & Financial Access)
-                  </div>
-                </div>
-                <span className="text-[11px] font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                  Select
-                </span>
-              </button>
+                  <span className="text-[11px] font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    Select
+                  </span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => handleQuickLogin("staff@soulmatestherapy.com")}
-                className="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-teal-400 hover:bg-teal-50/30 transition-all flex items-center justify-between group"
-              >
-                <div>
-                  <div className="text-xs font-semibold text-slate-900 group-hover:text-teal-900">
-                    Priya Sharma
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("staff@soulmatestherapy.com")}
+                  className="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-teal-400 hover:bg-teal-50/30 transition-all flex items-center justify-between group cursor-pointer"
+                >
+                  <div>
+                    <div className="text-xs font-semibold text-slate-900 group-hover:text-teal-900">
+                      Priya Sharma
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Front Desk Receptionist • Schedule & Triage (Notes Restricted)
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    Front Desk Receptionist (Schedule & Triage, Notes Restricted)
+                  <span className="text-[11px] font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    Select
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("hr@soulmatestherapy.com")}
+                  className="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-teal-400 hover:bg-teal-50/30 transition-all flex items-center justify-between group cursor-pointer"
+                >
+                  <div>
+                    <div className="text-xs font-semibold text-slate-900 group-hover:text-teal-900">
+                      Anand Patil
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      HR Manager • StaffOps & Payroll (Patient Clinical Zero Access)
+                    </div>
                   </div>
-                </div>
-                <span className="text-[11px] font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                  Select
-                </span>
-              </button>
+                  <span className="text-[11px] font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    Select
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("auditor@soulmatestherapy.com")}
+                  className="w-full text-left p-2.5 rounded-lg border border-slate-200 hover:border-teal-400 hover:bg-teal-50/30 transition-all flex items-center justify-between group cursor-pointer"
+                >
+                  <div>
+                    <div className="text-xs font-semibold text-slate-900 group-hover:text-teal-900">
+                      Meera Sen
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Compliance Auditor • Read-Only (Zero Mutation Rights)
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    Select
+                  </span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer info */}
