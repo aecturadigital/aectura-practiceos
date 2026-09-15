@@ -22,6 +22,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  practitionerKey: text("practitioner_key").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -213,6 +214,7 @@ export const appointments = pgTable(
     endTime: text("end_time").notNull(),
     startAt: timestamp("start_at", { withTimezone: true }),
     endAt: timestamp("end_at", { withTimezone: true }),
+    blockedUntilAt: timestamp("blocked_until_at", { withTimezone: true }),
     status: text("status").notNull().default("SCHEDULED"), // 'SCHEDULED', 'CONFIRMED', 'ARRIVED', 'ATTENDED', 'DECLINED_IN_ADVANCE', 'NO_SHOW', 'CANCELLED'
     paymentStatus: text("payment_status").notNull().default("PENDING"), // 'PENDING', 'PAID_AT_CLINIC', 'PAID_ONLINE', 'WAIVED'
     amount: numeric("amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
@@ -225,8 +227,8 @@ export const appointments = pgTable(
     index("idx_appointments_date").on(table.scheduledDate),
     index("idx_appointments_contact_id").on(table.contactId),
     index("idx_appointments_status").on(table.status),
-    index("idx_appointments_practitioner_range").on(table.practitionerId, table.startAt, table.endAt),
-    index("idx_appointments_range").on(table.startAt, table.endAt),
+    index("idx_appointments_practitioner_range").on(table.practitionerId, table.startAt, table.blockedUntilAt),
+    index("idx_appointments_range").on(table.startAt, table.blockedUntilAt),
   ]
 );
 
@@ -513,6 +515,7 @@ export const staffProfiles = pgTable(
     name: text("name").notNull(),
     role: text("role").notNull().default("RECEPTIONIST"), // 'OWNER', 'CLINIC_ADMIN', 'PRACTITIONER', 'RECEPTIONIST', 'BILLING_ACCOUNTANT'
     email: text("email").notNull(),
+    practitionerKey: text("practitioner_key").unique(),
     phone: text("phone").notNull(),
     shift: text("shift").notNull().default("10:00 AM - 07:00 PM"),
     baseSalary: numeric("base_salary", { precision: 10, scale: 2 }).notNull().default("22000.00"),

@@ -208,17 +208,17 @@ async function runRealPostgresVerification() {
       [testDoctorId, testDate]
     );
 
-    // Insert Base Appointment: 14:00 - 16:00 (120 mins)
+    // Insert Base Appointment: 14:00 - 16:00 (120 mins, buffer 15m -> blocked until 16:15)
     await runtimePool.query(
       `INSERT INTO appointments (
         contact_id, practitioner_id, practitioner_name, therapy_type,
-        mode, scheduled_date, start_time, end_time, start_at, end_at,
+        mode, scheduled_date, start_time, end_time, start_at, end_at, blocked_until_at,
         status, payment_status, amount
       ) VALUES ($1, $2, 'Dr Test', 'Assessment', 'IN_CLINIC', $3, '14:00', '16:00',
-        $4, $5, 'SCHEDULED', 'PENDING', 2500.00);`,
-      [contactId, testDoctorId, testDate, `${testDate}T14:00:00+05:30`, `${testDate}T16:00:00+05:30`]
+        $4, $5, $6, 'SCHEDULED', 'PENDING', 2500.00);`,
+      [contactId, testDoctorId, testDate, `${testDate}T14:00:00+05:30`, `${testDate}T16:00:00+05:30`, `${testDate}T16:15:00+05:30`]
     );
-    console.log("  ✓ Base 120-min appointment inserted: 14:00 - 16:00.");
+    console.log("  ✓ Base 120-min appointment inserted: 14:00 - 16:00 (blocked until 16:15).");
 
     // Test 1: Overlapping appointment (15:00 - 17:00) MUST be rejected by exclusion constraint
     let overlapRejected = false;
@@ -226,11 +226,11 @@ async function runRealPostgresVerification() {
       await runtimePool.query(
         `INSERT INTO appointments (
           contact_id, practitioner_id, practitioner_name, therapy_type,
-          mode, scheduled_date, start_time, end_time, start_at, end_at,
+          mode, scheduled_date, start_time, end_time, start_at, end_at, blocked_until_at,
           status, payment_status, amount
         ) VALUES ($1, $2, 'Dr Test', 'Assessment', 'IN_CLINIC', $3, '15:00', '17:00',
-          $4, $5, 'SCHEDULED', 'PENDING', 2500.00);`,
-        [contactId, testDoctorId, testDate, `${testDate}T15:00:00+05:30`, `${testDate}T17:00:00+05:30`]
+          $4, $5, $6, 'SCHEDULED', 'PENDING', 2500.00);`,
+        [contactId, testDoctorId, testDate, `${testDate}T15:00:00+05:30`, `${testDate}T17:00:00+05:30`, `${testDate}T17:15:00+05:30`]
       );
     } catch (err: any) {
       if (err.code === "23P01" && err.message.includes("excl_practitioner_no_overlap")) {
@@ -244,17 +244,17 @@ async function runRealPostgresVerification() {
       throw new Error("OVERLAP INTEGRITY FAILURE: Overlapping appointment was allowed by PostgreSQL!");
     }
 
-    // Test 2: Adjacent appointment (16:00 - 17:00) MUST succeed [half-open interval [start, end))
+    // Test 2: Adjacent appointment (16:15 - 17:00) MUST succeed [half-open interval [start, blocked_until))
     await runtimePool.query(
       `INSERT INTO appointments (
         contact_id, practitioner_id, practitioner_name, therapy_type,
-        mode, scheduled_date, start_time, end_time, start_at, end_at,
+        mode, scheduled_date, start_time, end_time, start_at, end_at, blocked_until_at,
         status, payment_status, amount
-      ) VALUES ($1, $2, 'Dr Test', 'Assessment', 'IN_CLINIC', $3, '16:00', '17:00',
-        $4, $5, 'SCHEDULED', 'PENDING', 2500.00);`,
-      [contactId, testDoctorId, testDate, `${testDate}T16:00:00+05:30`, `${testDate}T17:00:00+05:30`]
+      ) VALUES ($1, $2, 'Dr Test', 'Assessment', 'IN_CLINIC', $3, '16:15', '17:00',
+        $4, $5, $6, 'SCHEDULED', 'PENDING', 2500.00);`,
+      [contactId, testDoctorId, testDate, `${testDate}T16:15:00+05:30`, `${testDate}T17:00:00+05:30`, `${testDate}T17:15:00+05:30`]
     );
-    console.log("  ✓ Adjacent appointment (16:00 - 17:00) allowed by [start, end) half-open interval.");
+    console.log("  ✓ Adjacent appointment (16:15 - 17:00) allowed by [start, blocked_until) half-open interval.");
 
     // Test 3: Cancel base appointment, slot unblocks
     await runtimePool.query(
@@ -264,11 +264,11 @@ async function runRealPostgresVerification() {
     await runtimePool.query(
       `INSERT INTO appointments (
         contact_id, practitioner_id, practitioner_name, therapy_type,
-        mode, scheduled_date, start_time, end_time, start_at, end_at,
+        mode, scheduled_date, start_time, end_time, start_at, end_at, blocked_until_at,
         status, payment_status, amount
       ) VALUES ($1, $2, 'Dr Test', 'Assessment', 'IN_CLINIC', $3, '14:00', '15:30',
-        $4, $5, 'SCHEDULED', 'PENDING', 2500.00);`,
-      [contactId, testDoctorId, testDate, `${testDate}T14:00:00+05:30`, `${testDate}T15:30:00+05:30`]
+        $4, $5, $6, 'SCHEDULED', 'PENDING', 2500.00);`,
+      [contactId, testDoctorId, testDate, `${testDate}T14:00:00+05:30`, `${testDate}T15:30:00+05:30`, `${testDate}T15:45:00+05:30`]
     );
     console.log("  ✓ Re-booking cancelled slot (14:00 - 15:30) succeeded (unblocking verified).\n");
 

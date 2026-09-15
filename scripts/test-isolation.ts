@@ -129,6 +129,9 @@ async function runTestSuite() {
     scheduledDate: "2026-09-18",
     startTime: "11:00",
     endTime: "12:00",
+    startAt: new Date("2026-09-18T11:00:00+05:30"),
+    endAt: new Date("2026-09-18T12:00:00+05:30"),
+    blockedUntilAt: new Date("2026-09-18T12:15:00+05:30"),
     status: "CONFIRMED",
     amount: "2500.00",
   }).returning();

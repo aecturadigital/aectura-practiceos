@@ -105,8 +105,8 @@ async function runDatabaseReproducibilityTest() {
     });
 
     try {
-      // 2. Apply Repository Migrations Sequentially (0000 -> 0004)
-      console.log("\n[STEP 2/6] Executing Repository Migrations 0000 -> 0004 without Manual DDL...");
+      // 2. Apply Repository Migrations Sequentially (0000 -> 0005)
+      console.log("\n[STEP 2/6] Executing Repository Migrations 0000 -> 0005 without Manual DDL...");
       const migrationsDir = path.resolve(__dirname, "../drizzle/migrations");
       const migrationFiles = [
         "0000_premium_karma.sql",
@@ -114,6 +114,7 @@ async function runDatabaseReproducibilityTest() {
         "0002_charming_scarlet_spider.sql",
         "0003_yielding_doctor_strange.sql",
         "0004_appointment_overlap_exclusion.sql",
+        "0005_fail_closed_temporal_exclusion.sql",
       ];
 
       for (const file of migrationFiles) {
@@ -122,13 +123,8 @@ async function runDatabaseReproducibilityTest() {
           throw new Error(`Migration file missing: ${filePath}`);
         }
         const sql = fs.readFileSync(filePath, "utf8");
-        const statements = sql.split("--> statement-breakpoint");
-        for (const stmt of statements) {
-          const trimmed = stmt.trim();
-          if (trimmed.length > 0) {
-            await scratchPool.query(trimmed);
-          }
-        }
+        const cleanSql = sql.replace(/--> statement-breakpoint/g, ";\n");
+        await scratchPool.query(cleanSql);
         console.log(`  ✓ Successfully applied: ${file}`);
       }
 
@@ -195,16 +191,17 @@ async function runDatabaseReproducibilityTest() {
         const blockedUntilHour = `${Math.floor(blockedUntilMinTotal / 60).toString().padStart(2, "0")}:${(blockedUntilMinTotal % 60).toString().padStart(2, "0")}`;
 
         const startAt = `${testDate}T${startHour}:00+05:30`;
-        const endAt = `${testDate}T${blockedUntilHour}:00+05:30`;
+        const endAt = `${testDate}T${endHour}:00+05:30`;
+        const blockedUntilAt = `${testDate}T${blockedUntilHour}:00+05:30`;
 
         return await scratchPool.query(
           `INSERT INTO appointments (
             contact_id, practitioner_id, practitioner_name, therapy_type,
-            mode, scheduled_date, start_time, end_time, start_at, end_at,
+            mode, scheduled_date, start_time, end_time, start_at, end_at, blocked_until_at,
             status, payment_status, amount
-          ) VALUES ($1, $2, 'Dr. Repro Test', 'Therapy', 'IN_CLINIC', $3, $4, $5, $6, $7, $8, 'PENDING', 2500.00)
+          ) VALUES ($1, $2, 'Dr. Repro Test', 'Therapy', 'IN_CLINIC', $3, $4, $5, $6, $7, $8, $9, 'PENDING', 2500.00)
           RETURNING id;`,
-          [contactId, practitionerId, testDate, startHour, endHour, startAt, endAt, status]
+          [contactId, practitionerId, testDate, startHour, endHour, startAt, endAt, blockedUntilAt, status]
         );
       };
 

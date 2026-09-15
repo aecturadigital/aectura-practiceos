@@ -154,9 +154,6 @@ async function executeBookingTransaction(
   const servicePrice = service.price.toFixed(2);
   const durationMinutes = service.durationMinutes;
   const bufferMinutes = clinicConfig.bookingSettings.bufferMinutes || 15;
-  const endTime = calculateEndTime(input.startTime, durationMinutes);
-  const blockedUntilTime = calculateEndTime(input.startTime, durationMinutes + bufferMinutes);
-
   // 4. Strict Practitioner Resolution
   const practitionerConfig = resolveClinicPractitioner(clinicConfig, input.practitionerKey);
   if (!practitionerConfig) {
@@ -173,8 +170,12 @@ async function executeBookingTransaction(
     throw new Error(`PRACTITIONER_MAPPING_MISSING: No DB user found for '${practitionerConfig.name}'`);
   }
 
+  const sessionEndTime = calculateEndTime(input.startTime, durationMinutes);
+  const blockedUntilTime = calculateEndTime(input.startTime, durationMinutes + bufferMinutes);
+
   const startAt = localDateTimeToUtc(input.scheduledDate, input.startTime, clinicTz);
-  const endAt = localDateTimeToUtc(input.scheduledDate, blockedUntilTime, clinicTz);
+  const endAt = localDateTimeToUtc(input.scheduledDate, sessionEndTime, clinicTz);
+  const blockedUntilAt = localDateTimeToUtc(input.scheduledDate, blockedUntilTime, clinicTz);
 
   return await db.transaction(async (tx: any) => {
     // 5. Overlap Pre-Check
@@ -282,9 +283,10 @@ async function executeBookingTransaction(
         mode: input.mode,
         scheduledDate: input.scheduledDate,
         startTime: input.startTime,
-        endTime,
+        endTime: sessionEndTime,
         startAt,
         endAt,
+        blockedUntilAt,
         status: clinicConfig.bookingSettings.initialStatus, // "SCHEDULED"
         paymentStatus: "PENDING",
         amount: servicePrice,
@@ -327,7 +329,7 @@ async function executeBookingTransaction(
           occurred_at: new Date().toISOString(),
           scheduled_date: input.scheduledDate,
           start_time: input.startTime,
-          end_time: endTime,
+          end_time: sessionEndTime,
           service_id: service.id,
           service_name: service.name,
           mode: input.mode,
@@ -357,7 +359,7 @@ async function runPhase3ACorrectiveTests() {
 
   const migrationsFolder = path.resolve(__dirname, "../drizzle/migrations");
   await migrate(db, { migrationsFolder });
-  console.log("  ✓ Migrations 0000 -> 0004 applied successfully.\n");
+  console.log("  ✓ Migrations 0000 -> 0005 applied successfully.\n");
 
   // ---------------------------------------------------------------------------
   // TEST 1: Clinic Configuration Manifest & Provenance Gating
